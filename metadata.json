@@ -1,0 +1,6 @@
+{
+  "name": "CEP Solidário & Intelligence SaaS",
+  "description": "Plataforma de consulta e inteligência de CEP com mapeamento colaborativo de acessibilidade (PCD), score de qualidade de entrega, API B2B e enriquecimento geoespacial.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
