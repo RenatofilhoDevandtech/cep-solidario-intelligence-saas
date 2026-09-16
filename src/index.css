@@ -1,0 +1,288 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-apple: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Plus Jakarta Sans", system-ui, sans-serif;
+    --surface: rgba(255, 255, 255, 0.84);
+    --surface-strong: #ffffff;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --line: rgba(203, 213, 225, 0.72);
+    --accent: #4f46e5;
+    --accent-soft: #eef2ff;
+  }
+
+  body {
+    font-family: var(--font-apple);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    background: #f4f7fb;
+    color: var(--ink);
+    touch-action: manipulation;
+  }
+
+  /* Prevent overscroll bounce weirdness and smooth touch */
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  @media (min-width: 768px) {
+    body {
+      background-image: radial-gradient(circle at 10% 0%, rgba(99, 102, 241, 0.08), transparent 34rem),
+        radial-gradient(circle at 90% 12%, rgba(16, 185, 129, 0.06), transparent 30rem);
+      background-attachment: fixed;
+    }
+  }
+}
+
+.app-shell {
+  min-height: 100svh;
+}
+
+.app-main {
+  width: min(100% - 1.5rem, 80rem);
+}
+
+.header-main {
+  min-height: 4rem;
+}
+
+.header-brand {
+  min-width: 0;
+}
+
+.header-actions {
+  flex-shrink: 0;
+}
+
+.premium-surface {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 18px 50px -34px rgba(15, 23, 42, 0.38), 0 1px 2px rgba(15, 23, 42, 0.04);
+  backdrop-filter: blur(18px) saturate(135%);
+  -webkit-backdrop-filter: blur(18px) saturate(135%);
+}
+
+.dashboard-page {
+  min-width: 0;
+}
+
+.dashboard-page > * {
+  min-width: 0;
+}
+
+.dashboard-page button,
+.dashboard-page select,
+.dashboard-page input {
+  min-height: 2.75rem;
+}
+
+.dashboard-page table {
+  min-width: 44rem;
+}
+
+.dashboard-page .overflow-x-auto {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.mobile-bottom-nav {
+  padding-bottom: max(0.35rem, env(safe-area-inset-bottom));
+}
+
+@media (max-width: 1023px) {
+  .app-main {
+    width: min(100% - 1.25rem, 48rem);
+  }
+
+  .dashboard-page .apple-obsidian-card {
+    border-radius: 1.5rem;
+  }
+}
+
+@media (max-width: 639px) {
+  .app-main {
+    width: calc(100% - 1rem);
+  }
+
+  .dashboard-page > .bg-white,
+  .dashboard-page > .premium-surface {
+    border-radius: 1.25rem;
+  }
+
+  .dashboard-page table {
+    min-width: 38rem;
+  }
+
+  .header-main {
+    min-height: 3.75rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .header-brand > div:last-child {
+    display: none;
+  }
+
+  .header-actions {
+    gap: 0.35rem;
+  }
+
+  .header-actions > button:last-child {
+    padding-left: 0.7rem;
+    padding-right: 0.7rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Apple-style custom utilities */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Glassmorphism blur surface */
+/* Glassmorphism blur surface - Apple Liquid Glass */
+.apple-liquid-glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05), 0 1px 1px 0 rgba(255, 255, 255, 0.8) inset;
+}
+
+.apple-liquid-glass-dark {
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35);
+}
+
+.apple-glass {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* High Contrast Mode for Low Vision */
+body.high-contrast {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+body.high-contrast .apple-card,
+body.high-contrast .apple-liquid-glass,
+body.high-contrast .bg-white {
+  background-color: #121212 !important;
+  border-color: #ffffff !important;
+  color: #ffffff !important;
+}
+
+body.high-contrast .text-slate-900,
+body.high-contrast .text-slate-800,
+body.high-contrast .text-slate-700,
+body.high-contrast .text-slate-600 {
+  color: #ffffff !important;
+}
+
+body.high-contrast button,
+body.high-contrast a {
+  border-width: 2px !important;
+}
+
+/* Larger Text Scale Mode */
+body.large-font {
+  font-size: 118% !important;
+}
+
+body.large-font h1 {
+  font-size: 2.2rem !important;
+}
+
+body.large-font h2 {
+  font-size: 1.7rem !important;
+}
+
+/* Focus Ring for Keyboard / Switch Navigation (Accessibility) */
+:focus-visible {
+  outline: 3px solid #4f46e5 !important;
+  outline-offset: 3px !important;
+}
+
+.apple-glass-dark {
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* Subtle Apple card shadow & border */
+.apple-card {
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.02), 0 1px 2px -1px rgba(0, 0, 0, 0.02);
+  border-radius: 1.25rem;
+}
+
+.apple-card-hover {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.apple-card-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+  border-color: rgba(203, 213, 225, 1);
+}
+
+/* Safe area inset for modern smartphones */
+.pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+/* Luxury Tactile Cards inspired by Apple Wallet & High-End Logistics */
+.apple-wallet-card {
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 35%, #4338ca 70%, #1e1b4b 100%);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 20px 40px -15px rgba(49, 46, 129, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.12) inset;
+}
+
+.apple-wallet-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -50%;
+  width: 200%;
+  height: 100%;
+  background: radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.22) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.apple-obsidian-card {
+  background: linear-gradient(145deg, #090d16 0%, #0f172a 60%, #090d16 100%);
+  position: relative;
+  box-shadow: 0 16px 36px -12px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+}
+
+.apple-fab-glow {
+  box-shadow: 0 8px 24px -4px rgba(79, 70, 229, 0.5), 0 0 0 4px #ffffff;
+}
+
+.apple-fab-glow-coral {
+  box-shadow: 0 8px 24px -4px rgba(234, 88, 12, 0.45), 0 0 0 4px #ffffff;
+}
+
