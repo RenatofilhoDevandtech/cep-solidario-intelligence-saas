@@ -1,7 +1,7 @@
 # ♿ CEP Solidário & Intelligence SaaS
 
-> **Plataforma Nacional de Inteligência de Endereçamentos e Mapeamento Colaborativo de Acessibilidade Urbana Universal (ABNT NBR 9050 & WCAG 2.1 AA).**
-> Une validação de CEP de alta performance com **triplo fallback resiliente** para e-commerces e transportadoras ao maior ecossistema aberto de acessibilidade física, sensorial e cognitiva do Brasil.
+> **Plataforma de consulta de endereços e mapeamento colaborativo de acessibilidade urbana, com referências a ABNT NBR 9050 e WCAG 2.1 AA.**
+> Une validação de CEP com **triplo fallback** e informações comunitárias de acessibilidade para pessoas, responsáveis, instituições e empresas.
 
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/typescript-v5.7-blue.svg)](https://www.typescriptlang.org/)
@@ -13,7 +13,29 @@
 
 ## Estado atual e execução segura
 
-O projeto está pronto para demonstração local e para ser empacotado com Docker, mas ainda usa repositórios em memória para empresas, API keys, logs e avaliações. MySQL e Redis já estão descritos no Compose, porém a aplicação ainda não grava nesses serviços. Portanto, os dados são perdidos ao reiniciar o backend até a camada de persistência ser implementada.
+O projeto está pronto para demonstração local, instalação como PWA e empacotamento com Docker. Ainda usa repositórios em memória para empresas, API keys, logs e avaliações. MySQL e Redis estão preparados no Compose, porém a aplicação ainda não grava nesses serviços. Portanto, os dados podem ser perdidos ao reiniciar o backend até a camada de persistência ser implementada.
+
+Para evitar ambiguidade, este README diferencia recursos **implementados**, **preparados** e **planejados**. Os recursos implementados funcionam na demonstração atual; os preparados possuem estrutura inicial, mas ainda exigem integração; os planejados não devem ser tratados como promessa de produção.
+
+### Estado atual da experiência
+
+- Busca de CEP com fontes alternativas e estado de erro acionável.
+- Resultado de CEP com transparência sobre fonte, avaliações e ausência de dados.
+- Mapa colaborativo com filtros de acessibilidade e lista de locais.
+- Página 404 para rotas inexistentes, sem confundir com CEP não encontrado.
+- PWA com manifest, ícone, service worker e instalação pelo navegador em HTTPS.
+- Componentes compartilhados para acessos rápidos, erros e filtros do mapa.
+- Tokens de cor, tipografia, superfícies e sombras em `src/design-system/tokens.css`.
+
+O frontend e o backend seguem um **monólito modular**. As responsabilidades são separadas em componentes, serviços e módulos de domínio, mas ainda existe uma única aplicação para simplificar desenvolvimento, deploy e observabilidade. A divisão em microserviços só deve acontecer quando houver necessidade comprovada de escala ou isolamento operacional.
+
+Documentação complementar:
+
+- [Guia do usuário](docs/guia-do-usuario.md)
+- [Arquitetura da informação](docs/arquitetura-da-informacao.md)
+- [Visão de produto e carreira](docs/visao-produto-e-carreira.md)
+- [Prós, contras e soluções](docs/pros-contras-e-solucoes.md)
+- [Guia visual](docs/guia-visual.md)
 
 O backend agora possui:
 
@@ -33,6 +55,12 @@ npm run dev
 ```
 
 Abra `http://localhost:3000`. A conta demonstrativa local é `contato@logisticaexpress.com.br` com senha `123456`. Essa conta existe apenas para desenvolvimento e deve ser removida antes de um ambiente público.
+
+### Instalação como PWA
+
+Depois de publicar a aplicação em HTTPS, o navegador pode oferecer a opção **Instalar** ou **Adicionar à tela inicial**. Não é necessário publicar na Play Store para usar o PWA.
+
+O modo instalável inclui o shell da aplicação e não armazena respostas dinâmicas de `/api` no cache offline. A disponibilidade de instalação e alguns recursos varia entre navegadores, especialmente no iOS.
 
 ### Execução pelo WSL
 
@@ -60,8 +88,9 @@ O `Dockerfile` raiz executa o backend full-stack na porta `3000`. O Compose usa 
 - **CEP:** o backend consulta ViaCEP, BrasilAPI e AwesomeAPI em cascata e mantém cache em memória por 24 horas.
 - **Acessibilidade:** avaliações e mapa são atualmente mantidos em memória.
 - **B2B:** login cria uma sessão de processo; API keys e métricas também são mantidas em memória.
-- **Stripe:** checkout é um fluxo de demonstração. Não informe cartões reais; a cobrança real exige SDK Stripe, assinatura do webhook e persistência.
+- **Stripe:** checkout é um fluxo demonstrativo. Não informe cartões reais; cobrança real exige SDK Stripe, assinatura do webhook e persistência.
 - **MySQL/Redis:** estão preparados como infraestrutura do Compose, mas ainda precisam de repositories/adapters para serem usados pela aplicação.
+- **Worker:** está descrito na infraestrutura para processamento futuro de lotes; o fluxo atual deve ser tratado como demonstração até a execução assíncrona ser validada.
 
 ### Rotas protegidas
 
@@ -69,6 +98,24 @@ O `Dockerfile` raiz executa o backend full-stack na porta `3000`. O Compose usa 
 - Sessão corporativa: `/api/admin/usage`, `/api/api-keys` e `/api/auth/update-plan`.
 - API key: `/api/v1/validate` e `/api/v1/batch`, usando `x-api-key`.
 - Webhook: `/api/webhooks/stripe`, somente com `STRIPE_WEBHOOK_SECRET` e o header correspondente.
+
+### Limitações conhecidas
+
+- Avaliações, mapa, API keys, métricas e sessões dependem de armazenamento em memória na demonstração atual.
+- Reiniciar o backend pode apagar dados que ainda não foram persistidos em banco.
+- A cobertura de acessibilidade varia por cidade; a ausência de um local não significa ausência de acessibilidade.
+- O PWA exige HTTPS em produção e possui diferenças de suporte entre navegadores.
+- Imagens de ruas não fazem parte do fluxo atual; uma integração futura deve avaliar custo, cobertura e licença.
+- O checkout Stripe é demonstrativo e não deve receber cartões reais.
+
+### Verificações executadas
+
+```bash
+npm run lint
+npm run build
+```
+
+`npm run lint` executa o typecheck do TypeScript. `npm run build` compila o frontend com Vite e o backend com esbuild. Esses comandos validam compilação, mas ainda não substituem testes automatizados de comportamento, acessibilidade e integração.
 
 ---
 
@@ -80,7 +127,7 @@ O `Dockerfile` raiz executa o backend full-stack na porta `3000`. O Compose usa 
 4. [Stack Tecnológica Completa](#-stack-tecnológica)
 5. [Guia de Execução Rápida (Docker, Docker Compose & Local)](#-guia-de-execução)
    - [Opção 1: Container Único de Produção (Cloud Run / AWS / Dockerfile)](#1-container-único-dockerfile-produção)
-   - [Opção 2: Microsserviços com Docker Compose (MySQL + Redis + Worker)](#2-microsserviços-com-docker-compose)
+  - [Opção 2: Infraestrutura modular com Docker Compose (MySQL + Redis + Worker)](#2-infraestrutura-modular-com-docker-compose)
    - [Opção 3: Modo de Desenvolvimento Local](#3-modo-de-desenvolvimento-local)
 6. [API RESTful & Exemplos Práticos de Integração (cURL, JS, Python)](#-api-restful--especificação-openapi-30)
    - [Consulta com Triplo Fallback](#1-consulta-de-cep-pública-com-fallback-resiliente)
@@ -126,18 +173,18 @@ O **CEP Solidário & Intelligence** soluciona simultaneamente essas duas dores:
 
 Se você está avaliando este projeto em um processo seletivo ou banca acadêmica, atente-se a estes destaques de engenharia:
 
-1. **Engenharia de Resiliência (Zero Downtime para CEPs)**:
-   - Motor em cascata inteligente: se o ViaCEP oscilar ou atingir timeout de 3.5s, o pipeline executa fallback imediato para **BrasilAPI** e em seguida **AwesomeAPI**, garantindo disponibilidade de **99.9%**.
-   - Camada de **Cache em Memória / Redis** com invalidação preditiva (TTL de 24h), minimizando tráfego externo e latência para sub-40ms.
+1. **Engenharia de resiliência para consultas de CEP**:
+  - Motor em cascata: se uma fonte falhar, o pipeline tenta **BrasilAPI** e **AwesomeAPI** conforme a disponibilidade e o contrato de cada integração.
+  - Cache local em memória com TTL de 24h na demonstração; Redis está preparado no Compose, mas ainda não é usado pelo runtime atual.
 2. **Design System "Apple Liquid Glass" & Acessibilidade Real**:
-   - Efeito vidro translúcido de alta densidade (`backdrop-filter: blur(24px)`), microinterações com feedback tátil e paleta de alto contraste em conformidade com **WCAG 2.1 AA**.
+  - Efeito vidro translúcido, microinterações e paleta de alto contraste com referências às práticas **WCAG 2.1 AA**; a conformidade final exige auditoria dedicada.
    - Controles nativos acessíveis no topo: alternância imediata de **Alto Contraste**, **Texto A+** e leitor de tela falado em português via **Web Speech API**.
 3. **Inclusão Abrangente para Todas as Deficiências**:
    - Vai além da rampa tradicional: cobre deficiência motora, visual (piso tátil, braille), auditiva (intérprete de **Libras**) e neurodivergência (espaços calmos para pessoas no espectro autista - TEA).
-4. **Pronto para Escalar em Nuvem (Cloud Native)**:
-   - `Dockerfile` multi-stage otimizado (pesando menos de 180MB na imagem final).
-   - `docker-compose.yml` orquestrando **App Nginx + Backend Express + MySQL 8.0 com índices geoespaciais + Redis 7 + Worker assíncrono**.
-   - Tipagem rigorosa em **TypeScript 100% estrito** tanto no Frontend quanto no Backend (`dist/server.cjs` compilado via `esbuild`).
+4. **Base preparada para evolução em nuvem**:
+  - `Dockerfile` multi-stage para empacotamento da aplicação.
+  - `docker-compose.yml` descrevendo **Nginx + Backend Express + MySQL 8.0 + Redis 7 + Worker**, com integrações de persistência e processamento assíncrono ainda pendentes.
+  - TypeScript com verificação estrita e backend compilado via `esbuild` em `dist/server.cjs`.
 
 ---
 
@@ -185,7 +232,7 @@ O projeto implementa uma arquitetura desacoplada e modular baseada em **Domain-D
 - **React 19** + **TypeScript** (Strict mode)
 - **Vite 6** (Build tool ultrarrápido com Hot Module Reloading)
 - **Tailwind CSS v4** (Estilização utilitária sem bloatware de CSS)
-- **Leaflet & React-Leaflet** (Mapas geoespaciais interativos open-source via OpenStreetMap)
+- **Leaflet** (Mapas geoespaciais interativos open-source via OpenStreetMap)
 - **Lucide React** (Iconografia semântica, vetorizada e acessível)
 - **Web Speech API** (Síntese de voz nativa no navegador para acessibilidade assistiva)
 
@@ -193,9 +240,9 @@ O projeto implementa uma arquitetura desacoplada e modular baseada em **Domain-D
 - **Node.js 20 LTS** + **Express**
 - **esbuild** (Compilação do backend TypeScript em bundle único autônomo `dist/server.cjs`)
 - **OpenAPI 3.0** (Documentação interativa com Swagger/JSON para desenvolvedores)
-- **MySQL 8.0** (Esquema relacional com DDL, chaves estrangeiras e índices em `init.sql`)
-- **Redis 7 Alpine** (Cache de alta velocidade e controle de concorrência)
-- **Docker & Docker Compose** (Containerização multi-stage e orquestração de microsserviços)
+- **MySQL 8.0** (Esquema relacional preparado com DDL, chaves estrangeiras e índices em `init.sql`)
+- **Redis 7 Alpine** (Infraestrutura preparada para cache e controle de concorrência)
+- **Docker & Docker Compose** (Containerização multi-stage e infraestrutura modular)
 
 ---
 
@@ -219,8 +266,8 @@ Acesse no navegador: **`http://localhost:3000`**
 
 ---
 
-### 2. Microsserviços com Docker Compose
-Recomendado para ambiente completo de produção com persistência relacional e cache:
+### 2. Infraestrutura modular com Docker Compose
+Disponibiliza a infraestrutura preparada para persistência relacional, cache e processamento futuro. A aplicação ainda não grava automaticamente em MySQL/Redis; os containers são apoio ao desenvolvimento e à próxima etapa de integração. A aplicação continua organizada como um monólito modular:
 
 ```bash
 # 1. Clonar o repositório e acessar a pasta
@@ -230,7 +277,7 @@ cd cep-solidario
 # 2. Copiar arquivo de configuração de ambiente
 cp .env.example .env
 
-# 3. Subir todos os serviços (Frontend, Backend, MySQL, Redis, Worker)
+# 3. Subir a infraestrutura (Frontend, Backend, MySQL, Redis, Worker)
 docker compose up --build -d
 
 # 4. Acompanhar logs do backend
@@ -247,7 +294,7 @@ docker compose down
 | `cep_solidario_backend` | `Dockerfile.backend` (Node 20) | `5000` | API RESTful com triplo fallback |
 | `cep_solidario_mysql` | `mysql:8.0` | `3306` | Banco relacional com schemas e seeds em `init.sql` |
 | `cep_solidario_redis` | `redis:7-alpine` | `6379` | Cache de logradouros e controle de requisições |
-| `cep_solidario_worker` | `Dockerfile.backend` | - | Processamento em segundo plano para lotes (Batch) |
+| `cep_solidario_worker` | `Dockerfile.backend` | - | Estrutura preparada para processamento em segundo plano de lotes (Batch) |
 
 ---
 
@@ -487,14 +534,14 @@ Qualquer loja virtual (Shopify, Nuvemshop, WooCommerce, VTEX ou sistema próprio
 
 ## 💼 Modelo de Negócio & Monetização SaaS
 
-O projeto opera sob o modelo **Freemium & B2B ESG Subscription**:
+O projeto apresenta um modelo de negócio **Freemium & B2B ESG Subscription** para demonstração. Os valores e recursos abaixo são uma proposta de produto, não uma cobrança ativa em produção:
 
 | Plano | Valor Mensal | Cota de Requisições | Recursos Chave |
 |---|---|---|---|
 | **Comunitário (Dev)** | Grátis | 100 req / dia | Consulta pública de CEP, histórico local e mapa colaborativo |
-| **Startup** | R$ 99 | 10.000 req / mês | Widget de checkout, SLA 99.5%, chave `x-api-key` e rate limit de 120 req/min |
-| **Business (ESG)** | R$ 499 | 100.000 req / mês | Score de entrega preditivo, validação em lote, dados completos de acessibilidade e webhooks |
-| **Enterprise** | R$ 2.499 | 1.000.000 req / mês | SLA 99.9%, instância dedicada, suporte prioritário 24/7 e nota fiscal eletrônica automatizada |
+| **Startup** | R$ 99 | 10.000 req / mês | Widget de checkout demonstrativo, chave `x-api-key` e rate limit configurável |
+| **Business (ESG)** | R$ 499 | 100.000 req / mês | Score de entrega, validação em lote e dados de acessibilidade conforme integração disponível |
+| **Enterprise** | R$ 2.499 | 1.000.000 req / mês | Proposta de SLA, instância dedicada e suporte prioritário, sujeitos a contrato e implementação |
 
 ---
 
@@ -519,18 +566,26 @@ cep-solidario/
 ├── tsconfig.json               # Configurações rigorosas do TypeScript
 ├── vite.config.ts              # Configuração Vite e plugins
 ├── server.ts                   # Entry point do servidor Express & Vite Middleware
-├── server/                     # Microsserviços de Backend
+├── public/                     # Manifest, ícone e service worker do PWA
+│   └── icons/icon.svg
+├── docs/                       # Guias de usuário, arquitetura, produto e design
+├── server/                     # Módulos de domínio do backend
 │   ├── cepService.ts           # Motor de Triplo Fallback (ViaCEP + BrasilAPI + AwesomeAPI)
 │   ├── acessibilidadeService.ts# Avaliações, upvotes, cálculo de raio e exportador CSV
 │   └── b2bService.ts           # Chaves de API, logs, score logístico e OpenAPI spec
 └── src/                        # Aplicação Web Frontend (React 19 + TypeScript)
     ├── App.tsx                 # Layout principal, controle de abas e estado global
     ├── types.ts                # Definições estritas de interfaces e tipos
+    ├── design-system/
+    │   └── tokens.css           # Tokens de cores, tipografia e superfícies
     ├── services/
     │   └── api.ts              # Cliente HTTP tipado para consumo da API REST
     └── components/             # Componentes modulares e reutilizáveis
         ├── Header.tsx          # Barra de status, leitor de voz, alto contraste e texto A+
-        ├── CepSearch.tsx       # Consulta de CEP, diagnóstico e histórico
+        ├── CepSearch.tsx       # Orquestra a consulta e o resultado
+        ├── cep/CepQuickAccess.tsx # Cidades, histórico e acessos rápidos
+        ├── feedback/ErrorState.tsx # Estado de erro reutilizável
+        ├── map/MapFilters.tsx  # Filtros configuráveis do mapa
         ├── MapaAcessivel.tsx   # Mapa interativo Leaflet com filtros por deficiência
         ├── AvaliacoesLista.tsx # Estabelecimentos e upvotes comunitários
         ├── AcessibilidadeForm.tsx # Modal de cadastro categorizado por deficiência
@@ -539,14 +594,15 @@ cep-solidario/
         ├── CheckoutWidgetDemo.tsx # Demonstração interativa do script para e-commerce
         ├── ApiDocs.tsx         # Documentação interativa OpenAPI 3.0 e cURL
         ├── CompanyAuthModal.tsx# Autenticação de empresas com modo Demo 1-clique
-        └── PricingModal.tsx    # Tabela de planos e simulação de checkout Stripe
+        ├── PricingModal.tsx    # Tabela de planos e simulação de checkout Stripe
+        └── NotFound.tsx         # Estado visual para rotas inexistentes
 ```
 
 ---
 
 ## 👨‍💻 Autor & Informações Acadêmicas
 
-Desenvolvido como projeto de referência para integração de **Engenharia de Software de Alto Impacto**, combinando:
+Desenvolvido como projeto de referência e demonstração de **Engenharia de Software de Alto Impacto**, combinando:
 - **Resiliência e Tolerância a Falhas em Sistemas Distribuídos**;
 - **Acessibilidade Digital Universal (e-MAG / WCAG 2.1)**;
 - **Modelagem de Dados Relacional e Cache Distribuído**;

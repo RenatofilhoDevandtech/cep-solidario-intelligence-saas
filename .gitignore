@@ -3,6 +3,32 @@ build/
 dist/
 coverage/
 .DS_Store
+Thumbs.db
 *.log
+*.log.*
 .env*
 !.env.example
+
+# Editor and local tooling
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local databases and runtime data
+*.db
+*.sqlite
+*.sqlite3
+*.pid
+tmp/
+temp/
+
+# Certificates and private keys
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Local Docker overrides
+docker-compose.override.yml
