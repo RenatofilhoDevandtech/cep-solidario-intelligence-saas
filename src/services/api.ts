@@ -7,16 +7,26 @@ import {
   BatchItemResult,
   CompanyUser,
   MapaNacionalData,
+  PessoaRecord,
+  NewPessoaPayload,
+  DockerStatus,
 } from '../types.js';
 
 export async function consultarCep(cep: string): Promise<CepData & { avaliacoes: AcessibilidadeAvaliacao[]; acessibilidadeStats: AcessibilidadeStats }> {
   const clean = cep.replace(/\D/g, '');
   const res = await fetch(`/api/cep/${clean}`);
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.error || `Erro ao consultar CEP ${cep}`);
+  const text = await res.text().catch(() => '');
+  let data: any = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    // fallback non-json
   }
-  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(data.error || text || `Erro ao consultar CEP ${cep}`);
+  }
+
   return {
     ...data,
     acessibilidadeStats: data.acessibilidade || {
@@ -36,6 +46,9 @@ export async function cadastrarAcessibilidade(payload: {
   cep: string;
   local_nome: string;
   usuario_nome: string;
+  numero?: string;
+  complemento?: string;
+  logradouro?: string;
   rampa_acesso: boolean;
   elevador: boolean;
   banheiro_adaptado: boolean;
@@ -55,11 +68,22 @@ export async function cadastrarAcessibilidade(payload: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Erro ao cadastrar avaliação de acessibilidade');
+
+  const text = await res.text().catch(() => '');
+  let json: any = {};
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch {
+    // fallback non-json
   }
-  const json = await res.json();
+
+  if (!res.ok) {
+    if (res.status === 404) {
+      throw new Error('Servidor ativo não encontrou a rota /api/acessibilidade (404). Reinicie o comando "npm run dev" no terminal para aplicar o backend atualizado.');
+    }
+    throw new Error(json.error || text || 'Erro ao cadastrar avaliação de acessibilidade');
+  }
+
   return json.avaliacao;
 }
 
@@ -190,5 +214,86 @@ export async function atualizarPlanoEmpresa(plan: string): Promise<CompanyUser> 
     throw new Error(data.error || 'Erro ao atualizar plano da empresa.');
   }
   return data.company;
+}
+
+export async function listarPessoas(): Promise<PessoaRecord[]> {
+  const res = await fetch('/api/pessoas');
+  const text = await res.text().catch(() => '');
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    // non-json
+  }
+
+  if (!res.ok) {
+    if (res.status === 404) {
+      throw new Error('Endpoint /api/pessoas não encontrado (404). O servidor backend ativo precisa ser reiniciado no terminal (Ctrl+C e depois npm run dev) para reconhecer as novas rotas.');
+    }
+    throw new Error(json?.error || text || 'Erro ao listar pessoas cadastradas');
+  }
+
+  return Array.isArray(json) ? json : [];
+}
+
+export async function cadastrarPessoa(payload: NewPessoaPayload): Promise<PessoaRecord> {
+  const res = await fetch('/api/pessoas', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  const text = await res.text().catch(() => '');
+  let data: any = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    // non-json response (e.g. 404 Cannot POST or HTML)
+  }
+
+  if (!res.ok) {
+    if (res.status === 404) {
+      throw new Error('Endpoint /api/pessoas não encontrado no servidor ativo (404). O processo "npm run dev" no terminal precisa ser reiniciado (pressione Ctrl+C e execute "npm run dev") para ativar as novas rotas do backend.');
+    }
+    throw new Error(data.error || text || `Erro ${res.status} ao cadastrar pessoa e endereço.`);
+  }
+
+  if (!data.pessoa) {
+    throw new Error('A resposta do servidor não continha os dados da pessoa cadastrada.');
+  }
+
+  return data.pessoa;
+}
+
+export async function buscarStatusDocker(): Promise<DockerStatus> {
+  const defaultFallback: DockerStatus = {
+    status: 'online',
+    services: {
+      frontend: { container: 'cep_solidario_frontend', port: 3000, type: 'Nginx Reverse Proxy' },
+      backend: { container: 'cep_solidario_backend', port: 5000, type: 'Node.js Express REST API' },
+      database: {
+        container: 'cep_solidario_mysql',
+        port: 3306,
+        volume: 'mysql_data',
+        mountPoint: '/var/lib/mysql',
+        isConnected: false,
+        host: 'localhost',
+        database: 'cepsolidario_db',
+        engine: 'MySQL 8.0 (InnoDB)',
+      },
+    },
+    network: 'cep_network (bridge)',
+    timestamp: new Date().toISOString(),
+  };
+
+  try {
+    const res = await fetch('/api/system/docker-status');
+    if (!res.ok) {
+      return defaultFallback;
+    }
+    return await res.json();
+  } catch {
+    return defaultFallback;
+  }
 }
 

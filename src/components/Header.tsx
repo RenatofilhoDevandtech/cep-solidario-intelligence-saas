@@ -16,6 +16,7 @@ import {
   Type,
   Volume2,
   VolumeX,
+  Users,
 } from 'lucide-react';
 import { CompanyUser } from '../types.js';
 
@@ -25,8 +26,8 @@ interface InstallPromptEvent extends Event {
 }
 
 interface HeaderProps {
-  activeTab: 'search' | 'map' | 'dashboard' | 'batch' | 'widget' | 'docs';
-  setActiveTab: (tab: 'search' | 'map' | 'dashboard' | 'batch' | 'widget' | 'docs') => void;
+  activeTab: 'search' | 'map' | 'pessoas' | 'dashboard' | 'batch' | 'widget' | 'docs';
+  setActiveTab: (tab: 'search' | 'map' | 'pessoas' | 'dashboard' | 'batch' | 'widget' | 'docs') => void;
   openPricing: () => void;
   loggedCompany: CompanyUser | null;
   onOpenAuth: () => void;
@@ -223,6 +224,21 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Globe2 className="w-3.5 h-3.5 text-emerald-600" />
             <span>Mapa Brasil PCD</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('pessoas')}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs transition-all duration-200 ${
+              activeTab === 'pessoas'
+                ? 'bg-white text-indigo-950 shadow-sm font-bold scale-[1.02]'
+                : 'text-slate-600 hover:text-slate-900 font-medium'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Pessoas & Endereços</span>
+            <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded-md bg-indigo-100 text-indigo-800">
+              CRUD
+            </span>
           </button>
 
           <button

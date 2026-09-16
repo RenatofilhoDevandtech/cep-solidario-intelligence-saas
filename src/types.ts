@@ -25,6 +25,9 @@ export interface AcessibilidadeAvaliacao {
   cep: string;
   local_nome: string;
   usuario_nome: string;
+  numero?: string;
+  complemento?: string;
+  logradouro?: string;
   rampa_acesso: boolean;
   elevador: boolean;
   banheiro_adaptado: boolean;
@@ -133,3 +136,56 @@ export interface MapaNacionalData {
   rankingEstados: EstadoRanking[];
   locais: (AcessibilidadeAvaliacao & { scoreGeral: number })[];
 }
+
+export interface PessoaRecord {
+  id: number;
+  nome: string;
+  cpf: string;
+  cep: string;
+  numero: string;
+  complemento: string;
+  logradouro: string;
+  bairro: string;
+  localidade: string;
+  uf: string;
+  estado: string;
+  rua: string;
+  termo_lgpd: boolean;
+  created_at: string;
+}
+
+export interface NewPessoaPayload {
+  nome: string;
+  cpf: string;
+  cep: string;
+  numero: string;
+  complemento?: string;
+  logradouro: string;
+  bairro: string;
+  localidade: string;
+  uf: string;
+  estado: string;
+  rua: string;
+  termo_lgpd?: boolean;
+}
+
+export interface DockerStatus {
+  status: string;
+  services: {
+    frontend: { container: string; port: number; type: string };
+    backend: { container: string; port: number; type: string };
+    database: {
+      container: string;
+      port: number;
+      volume: string;
+      mountPoint: string;
+      isConnected: boolean;
+      host: string;
+      database: string;
+      engine: string;
+    };
+  };
+  network: string;
+  timestamp: string;
+}
+

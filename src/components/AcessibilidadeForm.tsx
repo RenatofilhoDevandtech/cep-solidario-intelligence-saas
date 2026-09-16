@@ -6,6 +6,7 @@ import {
   AlertCircle,
   CheckCircle2,
   HelpCircle,
+  MapPin,
 } from 'lucide-react';
 
 interface AcessibilidadeFormProps {
@@ -14,10 +15,15 @@ interface AcessibilidadeFormProps {
   defaultCep: string;
   defaultCity?: string;
   defaultUf?: string;
+  defaultLogradouro?: string;
+  defaultBairro?: string;
   onSubmit: (data: {
     cep: string;
     local_nome: string;
     usuario_nome: string;
+    numero?: string;
+    complemento?: string;
+    logradouro?: string;
     rampa_acesso: boolean;
     elevador: boolean;
     banheiro_adaptado: boolean;
@@ -40,11 +46,16 @@ export const AcessibilidadeForm: React.FC<AcessibilidadeFormProps> = ({
   defaultCep,
   defaultCity,
   defaultUf,
+  defaultLogradouro,
+  defaultBairro,
   onSubmit,
 }) => {
   const [cep, setCep] = useState(defaultCep || '');
   const [localNome, setLocalNome] = useState('');
   const [usuarioNome, setUsuarioNome] = useState('');
+  const [numero, setNumero] = useState('');
+  const [complemento, setComplemento] = useState('');
+  const [logradouro, setLogradouro] = useState(defaultLogradouro || '');
   const [rampa, setRampa] = useState(true);
   const [elevador, setElevador] = useState(false);
   const [banheiro, setBanheiro] = useState(true);
@@ -62,6 +73,15 @@ export const AcessibilidadeForm: React.FC<AcessibilidadeFormProps> = ({
   const [fotoUrl, setFotoUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Sincroniza o CEP e dados do local ao abrir o modal
+  useEffect(() => {
+    if (isOpen) {
+      setCep(defaultCep || '');
+      setLogradouro(defaultLogradouro || '');
+      setErrorMsg('');
+    }
+  }, [isOpen, defaultCep, defaultLogradouro]);
 
   // Nielsen #3: User Control & Freedom - close with ESC key
   useEffect(() => {
@@ -101,6 +121,9 @@ export const AcessibilidadeForm: React.FC<AcessibilidadeFormProps> = ({
         cep: cep || defaultCep,
         local_nome: localNome.trim(),
         usuario_nome: usuarioNome.trim(),
+        numero: numero.trim() || 'S/N',
+        complemento: complemento.trim(),
+        logradouro: logradouro.trim() || defaultLogradouro || '',
         rampa_acesso: rampa,
         elevador,
         banheiro_adaptado: banheiro,
@@ -174,6 +197,24 @@ export const AcessibilidadeForm: React.FC<AcessibilidadeFormProps> = ({
             </div>
           )}
 
+          {/* Informação do Endereço Vinculado ao CEP */}
+          <div className="p-3 bg-slate-50/90 rounded-2xl border border-slate-200/80 text-xs text-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-indigo-600 shrink-0" />
+              <div>
+                <span className="font-semibold block text-slate-900">
+                  {defaultLogradouro || logradouro || 'Logradouro do CEP'}
+                </span>
+                <span className="text-[11px] text-slate-500">
+                  {defaultBairro ? `${defaultBairro}, ` : ''}{defaultCity ? `${defaultCity} - ${defaultUf}` : ''}
+                </span>
+              </div>
+            </div>
+            <span className="font-mono font-bold text-indigo-700 text-xs bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 self-start sm:self-auto">
+              CEP: {cep || defaultCep}
+            </span>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5" htmlFor="input-local-name">
@@ -205,6 +246,39 @@ export const AcessibilidadeForm: React.FC<AcessibilidadeFormProps> = ({
               />
             </div>
           </div>
+
+          {/* Localização específica no logradouro: Número e Complemento */}
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
+            <div className="sm:col-span-5">
+              <label className="block text-xs font-bold text-slate-700 mb-1.5" htmlFor="input-local-num">
+                Número do Local *
+              </label>
+              <input
+                id="input-local-num"
+                type="text"
+                value={numero}
+                onChange={(e) => setNumero(e.target.value)}
+                placeholder="Ex: 1578 ou S/N"
+                className="w-full px-3.5 py-2.5 bg-slate-100/70 hover:bg-slate-100 focus:bg-white border border-slate-200 focus:border-indigo-600 rounded-xl text-xs sm:text-sm text-slate-900 outline-none transition-all focus:ring-3 focus:ring-indigo-500/15"
+                required
+              />
+            </div>
+
+            <div className="sm:col-span-7">
+              <label className="block text-xs font-bold text-slate-700 mb-1.5" htmlFor="input-local-compl">
+                Complemento / Loja / Sala <span className="text-slate-400 font-normal">(Opcional)</span>
+              </label>
+              <input
+                id="input-local-compl"
+                type="text"
+                value={complemento}
+                onChange={(e) => setComplemento(e.target.value)}
+                placeholder="Ex: Loja 2, Térreo, Galeria A"
+                className="w-full px-3.5 py-2.5 bg-slate-100/70 hover:bg-slate-100 focus:bg-white border border-slate-200 focus:border-indigo-600 rounded-xl text-xs sm:text-sm text-slate-900 outline-none transition-all focus:ring-3 focus:ring-indigo-500/15"
+              />
+            </div>
+          </div>
+
 
           {/* Accessibility Checkboxes Grid - Categorized for all disabilities */}
           <div className="space-y-3">

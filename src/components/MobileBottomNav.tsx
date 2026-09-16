@@ -7,12 +7,13 @@ import {
   Layers,
   Sparkles,
   Lock,
+  Users,
 } from 'lucide-react';
 import { CompanyUser } from '../types.js';
 
 interface MobileBottomNavProps {
-  activeTab: 'search' | 'map' | 'dashboard' | 'batch' | 'widget' | 'docs';
-  setActiveTab: (tab: 'search' | 'map' | 'dashboard' | 'batch' | 'widget' | 'docs') => void;
+  activeTab: 'search' | 'map' | 'pessoas' | 'dashboard' | 'batch' | 'widget' | 'docs';
+  setActiveTab: (tab: 'search' | 'map' | 'pessoas' | 'dashboard' | 'batch' | 'widget' | 'docs') => void;
   loggedCompany: CompanyUser | null;
 }
 
@@ -67,6 +68,27 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             }`}
           />
           <span className="text-[10px] mt-1 tracking-tight">Brasil</span>
+        </button>
+
+        {/* Tab 3: Pessoas (Requisito Oficial) */}
+        <button
+          onClick={() => {
+            setActiveTab('pessoas');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all duration-200 active:scale-95 ${
+            activeTab === 'pessoas'
+              ? 'text-indigo-600 font-bold'
+              : 'text-slate-500 hover:text-slate-900 font-medium'
+          }`}
+          style={{ minHeight: '48px', minWidth: '48px' }}
+        >
+          <Users
+            className={`w-5 h-5 transition-transform duration-200 ${
+              activeTab === 'pessoas' ? 'scale-110 stroke-[2.4]' : 'stroke-[1.75]'
+            }`}
+          />
+          <span className="text-[10px] mt-1 tracking-tight">Pessoas</span>
         </button>
 
         {/* CENTER ELEVATED FLOATING ACTION BUTTON (Inspired by Reference 1 & 2) */}

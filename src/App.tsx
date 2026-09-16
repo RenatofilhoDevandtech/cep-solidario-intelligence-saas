@@ -13,6 +13,7 @@ import { PricingModal } from './components/PricingModal.js';
 import { CompanyAuthModal } from './components/CompanyAuthModal.js';
 import { Toast } from './components/Toast.js';
 import { NotFound } from './components/NotFound.js';
+import { PessoasView } from './components/PessoasView.js';
 import { CepData, AcessibilidadeStats, AcessibilidadeAvaliacao, CompanyUser } from './types.js';
 import {
   consultarCep,
@@ -26,7 +27,7 @@ import { HeartHandshake, Shield, Download } from 'lucide-react';
 const STORAGE_KEY = 'cepsolidario_company';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'search' | 'map' | 'dashboard' | 'batch' | 'widget' | 'docs'>('search');
+  const [activeTab, setActiveTab] = useState<'search' | 'map' | 'pessoas' | 'dashboard' | 'batch' | 'widget' | 'docs'>('search');
   const [currentCepData, setCurrentCepData] = useState<
     (CepData & { acessibilidadeStats: AcessibilidadeStats; avaliacoes: AcessibilidadeAvaliacao[] }) | null
   >(null);
@@ -204,6 +205,12 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'pessoas' && (
+          <PessoasView
+            onNotify={(message, type) => setToast({ message, type })}
+          />
+        )}
+
         {activeTab === 'dashboard' && (
           <B2bDashboard
             openPricing={() => setIsPricingOpen(true)}
@@ -231,9 +238,11 @@ export default function App() {
       <AcessibilidadeForm
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
-        defaultCep={currentCepData?.cep || '01310-100'}
+        defaultCep={currentCepData?.cep || ''}
         defaultCity={currentCepData?.cidade}
         defaultUf={currentCepData?.uf}
+        defaultLogradouro={currentCepData?.logradouro}
+        defaultBairro={currentCepData?.bairro}
         onSubmit={handleCreateAvaliacao}
       />
 

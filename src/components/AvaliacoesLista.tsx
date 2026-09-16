@@ -10,6 +10,7 @@ import {
   HeartHandshake,
   ShieldCheck,
   Plus,
+  MapPin,
 } from 'lucide-react';
 import { AcessibilidadeAvaliacao } from '../types.js';
 
@@ -104,6 +105,15 @@ export const AvaliacoesLista: React.FC<AvaliacoesListaProps> = ({
                       {item.cep}
                     </span>
                   </h3>
+                  {/* Endereço específico do local avaliado */}
+                  <div className="flex items-center gap-1.5 text-xs text-slate-600 font-medium mt-1">
+                    <MapPin className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                    <span>
+                      {item.logradouro ? item.logradouro : 'Logradouro'}, nº <strong className="text-slate-900">{item.numero || 'S/N'}</strong>
+                      {item.complemento ? ` (${item.complemento})` : ''}
+                      {item.bairro ? ` • ${item.bairro}` : ''}
+                    </span>
+                  </div>
                   <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
                     <span className="flex items-center gap-1 font-medium">
                       <User className="w-3.5 h-3.5 text-slate-400" />
