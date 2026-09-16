@@ -9,28 +9,31 @@ import {
   X,
   Copy,
   Check,
-  History,
   Share2,
   ShieldCheck,
   Navigation,
   Sparkles,
-  Zap,
   Building2,
   CheckCircle2,
+  AlertTriangle,
+  CircleHelp,
   ChevronRight,
-  Plus,
 } from 'lucide-react';
 import { CepData, AcessibilidadeStats, AcessibilidadeAvaliacao } from '../types.js';
+import { CepQuickAccess, QuickCep } from './cep/CepQuickAccess.js';
+import { ErrorState } from './feedback/ErrorState.js';
 
 interface CepSearchProps {
   currentCepData: (CepData & { acessibilidadeStats: AcessibilidadeStats; avaliacoes: AcessibilidadeAvaliacao[] }) | null;
   loading: boolean;
+  errorMessage: string | null;
   onSearch: (cep: string) => void;
+  onClearResults: () => void;
   onOpenForm: () => void;
   onGoToMap: () => void;
 }
 
-const PRESET_CEPS = [
+const PRESET_CEPS: QuickCep[] = [
   { label: 'São Paulo', sub: 'MASP / Paulista', cep: '01310-100', uf: 'SP', emoji: '🏛️' },
   { label: 'Rio', sub: 'Copacabana', cep: '22041-001', uf: 'RJ', emoji: '🏖️' },
   { label: 'Belo Horizonte', sub: 'Pça Liberdade', cep: '30130-100', uf: 'MG', emoji: '☕' },
@@ -42,7 +45,9 @@ const PRESET_CEPS = [
 export const CepSearch: React.FC<CepSearchProps> = ({
   currentCepData,
   loading,
+  errorMessage,
   onSearch,
+  onClearResults,
   onOpenForm,
   onGoToMap,
 }) => {
@@ -84,6 +89,7 @@ export const CepSearch: React.FC<CepSearchProps> = ({
 
   const handleClear = () => {
     setInputCep('');
+    onClearResults();
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -104,7 +110,10 @@ export const CepSearch: React.FC<CepSearchProps> = ({
 
   const handleShare = async () => {
     if (!currentCepData) return;
-    const shareText = `CEP ${currentCepData.cep}: ${currentCepData.logradouro}, ${currentCepData.cidade}/${currentCepData.uf}. Acessibilidade PCD: ${currentCepData.acessibilidadeStats?.mediaNota || 5.0}/5.0.`;
+    const accessibilitySummary = currentCepData.acessibilidadeStats?.total
+      ? `Acessibilidade PCD: ${currentCepData.acessibilidadeStats.mediaNota}/5.0, com ${currentCepData.acessibilidadeStats.total} avaliação(ões) comunitária(s).`
+      : 'Ainda não há avaliações comunitárias de acessibilidade para este endereço.';
+    const shareText = `CEP ${currentCepData.cep}: ${currentCepData.logradouro}, ${currentCepData.cidade}/${currentCepData.uf}. ${accessibilitySummary}`;
     if (navigator.share) {
       try {
         await navigator.share({
@@ -123,22 +132,28 @@ export const CepSearch: React.FC<CepSearchProps> = ({
   };
 
   const digitsCount = inputCep.replace(/\D/g, '').length;
+  const accessibilityStats = currentCepData?.acessibilidadeStats;
+  const hasAccessibilityData = Boolean(accessibilityStats?.total);
+  const formatAccessibilityPercentage = (value?: number) =>
+    hasAccessibilityData ? `${value || 0}%` : 'Sem dados';
 
   return (
     <div className="space-y-6">
       {/* 1. Top Header & Search Area (Apple Spotlight Style) */}
-      <div className="bg-white rounded-3xl p-5 sm:p-7 border border-slate-200/80 shadow-[0_4px_24px_rgba(0,0,0,0.03)] transition-all">
+      <div className="relative overflow-hidden rounded-3xl bg-white p-5 sm:p-8 text-slate-900 border border-slate-200/80 shadow-[0_14px_40px_-24px_rgba(15,23,42,0.25)] transition-all">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-linear-to-r from-indigo-500 via-emerald-400 to-indigo-500" />
+        <div className="relative">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50/80 border border-indigo-100 text-indigo-700 text-xs font-bold mb-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-              <span>SLA 99.9% • Triplo Fallback Ativo (ViaCEP, BrasilAPI & AwesomeAPI)</span>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-bold mb-3">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span>Consulta de endereço com dados transparentes</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
-              Consulta Inteligente & Acessibilidade PCD
+            <h1 className="max-w-2xl text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
+              Encontre um endereço. Planeje melhor o caminho.
             </h1>
-            <p className="text-slate-600 text-xs sm:text-sm mt-1 leading-relaxed">
-              Pesquise qualquer CEP brasileiro com latência ultrabaixa e verifique a conformidade de acessibilidade para cadeirantes e pessoas com deficiência.
+            <p className="max-w-xl text-slate-600 text-xs sm:text-sm mt-2 leading-relaxed">
+              Consulte o CEP, confira os dados do endereço e veja o que a comunidade já confirmou sobre acessibilidade.
             </p>
           </div>
 
@@ -147,18 +162,21 @@ export const CepSearch: React.FC<CepSearchProps> = ({
               BR
             </div>
             <div className="text-left">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Base Nacional</span>
-              <span className="text-xs font-bold text-slate-800">5.570 Municípios Ativos</span>
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Em todo o Brasil</span>
+              <span className="text-xs font-bold text-slate-800">Endereços e acessibilidade</span>
             </div>
           </div>
         </div>
 
         {/* Search Input Bar */}
-        <form onSubmit={handleSubmit} className="mt-6">
-          <div className="flex flex-col sm:flex-row gap-2.5 max-w-2xl">
+        <form onSubmit={handleSubmit} className="mt-7">
+          <label htmlFor="input-cep-search" className="mb-2 block text-xs font-bold uppercase tracking-wider text-indigo-700">
+            Consulte um CEP
+          </label>
+          <div className="flex flex-col sm:flex-row gap-2.5 max-w-3xl">
             <div className="relative flex-1">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                <Search className="w-5 h-5 text-slate-400" />
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#627d98]">
+                <Search className="w-5 h-5 text-[#627d98]" />
               </div>
               <input
                 id="input-cep-search"
@@ -167,7 +185,7 @@ export const CepSearch: React.FC<CepSearchProps> = ({
                 onChange={handleInputChange}
                 placeholder="Digite o CEP (ex: 01310-100)"
                 aria-label="Código Postal (CEP)"
-                className="w-full pl-12 pr-11 py-3.5 bg-slate-100/80 hover:bg-slate-100 focus:bg-white border border-slate-200 focus:border-indigo-600 rounded-2xl text-slate-900 font-mono text-base font-semibold transition-all outline-none focus:ring-4 focus:ring-indigo-500/15 shadow-inner"
+                className="w-full pl-12 pr-11 py-3.5 bg-white hover:bg-slate-50 focus:bg-white border border-white/60 focus:border-emerald-400 rounded-xl text-slate-900 font-mono text-base font-semibold transition-all outline-none focus:ring-4 focus:ring-emerald-300/25 shadow-lg"
                 maxLength={9}
               />
               {inputCep && (
@@ -188,7 +206,7 @@ export const CepSearch: React.FC<CepSearchProps> = ({
               id="btn-search-cep"
               type="submit"
               disabled={loading || digitsCount !== 8}
-              className="px-6 py-3.5 bg-slate-900 hover:bg-slate-800 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-2xl text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer select-none"
+              className="px-6 py-3.5 bg-slate-900 hover:bg-slate-800 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed text-white font-extrabold rounded-xl text-sm shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer select-none"
               style={{ minHeight: '48px' }}
             >
               {loading ? (
@@ -212,93 +230,30 @@ export const CepSearch: React.FC<CepSearchProps> = ({
           )}
         </form>
 
-        {/* 2. Quick Access Carousel (Inspired by Image 1 "Quick Top-Up" avatars) */}
-        <div className="mt-6 pt-5 border-t border-slate-100">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-              <Zap className="w-3.5 h-3.5 text-amber-500" />
-              <span>Cidades & Acessos Rápidos</span>
-            </span>
-            <span className="text-[11px] text-slate-400">1 toque para consultar</span>
-          </div>
-
-          <div className="flex items-center gap-3 overflow-x-auto no-scrollbar pb-1 -mx-1 px-1">
-            {/* Quick action button for custom search */}
-            <button
-              type="button"
-              onClick={() => {
-                const input = document.getElementById('input-cep-search') as HTMLInputElement;
-                if (input) {
-                  input.focus();
-                  input.select();
-                }
-              }}
-              className="flex flex-col items-center justify-center min-w-[76px] group transition-all"
-            >
-              <div className="w-13 h-13 rounded-full border-2 border-dashed border-indigo-300 group-hover:border-indigo-600 bg-indigo-50/50 flex items-center justify-center text-indigo-600 transition-colors shadow-2xs group-active:scale-95">
-                <Plus className="w-5 h-5" />
-              </div>
-              <span className="text-[11px] font-bold text-slate-700 mt-1.5 whitespace-nowrap">
-                Novo CEP
-              </span>
-            </button>
-
-            {PRESET_CEPS.map((item) => (
-              <button
-                key={item.cep}
-                type="button"
-                onClick={() => {
-                  setInputCep(item.cep);
-                  onSearch(item.cep);
-                }}
-                className="flex flex-col items-center justify-center min-w-[82px] group transition-all"
-              >
-                <div className="w-13 h-13 rounded-full bg-slate-100 border border-slate-200/80 group-hover:border-indigo-500 group-hover:bg-indigo-50/80 flex items-center justify-center text-xl transition-all shadow-2xs group-active:scale-95">
-                  <span>{item.emoji}</span>
-                </div>
-                <span className="text-[11px] font-bold text-slate-900 mt-1.5 truncate max-w-[80px]">
-                  {item.label}
-                </span>
-                <span className="text-[10px] text-slate-500 font-mono -mt-0.5">
-                  {item.uf}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* 3. Recent Searches (Inspired by Image 1 "Latest Transactions") */}
-        {recentCeps.length > 0 && (
-          <div className="mt-4 pt-3.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-xs text-slate-500 font-medium flex items-center gap-1.5 mr-1">
-                <History className="w-3.5 h-3.5 text-slate-400" />
-                <span>Recentes:</span>
-              </span>
-              {recentCeps.map((cep) => (
-                <button
-                  key={cep}
-                  type="button"
-                  onClick={() => {
-                    setInputCep(cep);
-                    onSearch(cep);
-                  }}
-                  className="text-xs font-mono font-bold bg-slate-100 hover:bg-slate-200/90 active:scale-95 text-slate-700 border border-slate-200 px-2.5 py-1 rounded-full transition-all shadow-2xs"
-                >
-                  {cep}
-                </button>
-              ))}
-            </div>
-
-            <button
-              type="button"
-              onClick={handleClearHistory}
-              className="text-[11px] text-slate-400 hover:text-slate-700 hover:underline transition-colors"
-            >
-              Limpar histórico
-            </button>
-          </div>
+        {errorMessage && (
+          <ErrorState
+            title="Não encontramos esse CEP"
+            message={errorMessage}
+            actionLabel="Tentar outro CEP"
+            onAction={handleClear}
+          />
         )}
+
+        <CepQuickAccess
+          presets={PRESET_CEPS}
+          recentCeps={recentCeps}
+          onSearch={(cep) => {
+            setInputCep(cep);
+            onSearch(cep);
+          }}
+          onFocusSearch={() => {
+            const input = document.getElementById('input-cep-search') as HTMLInputElement | null;
+            input?.focus();
+            input?.select();
+          }}
+          onClearHistory={handleClearHistory}
+        />
+        </div>
       </div>
 
       {/* 4. LUXURY 3D TACTILE HERO CARD (Inspired by Apple Wallet Card & Reference 2 Logistics Card) */}
@@ -313,11 +268,11 @@ export const CepSearch: React.FC<CepSearchProps> = ({
               </div>
               <div>
                 <span className="text-[11px] tracking-widest uppercase font-mono font-bold text-indigo-200 block">
-                  PASSAPORTE DE ENDEREÇO & ESG
+                  RESUMO DE ENDEREÇO & ACESSIBILIDADE
                 </span>
                 <span className="text-xs font-extrabold text-white flex items-center gap-1">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" />
-                  <span>BR CEP SOLIDÁRIO PRO</span>
+                  <span>CEP SOLIDÁRIO</span>
                 </span>
               </div>
             </div>
@@ -370,7 +325,7 @@ export const CepSearch: React.FC<CepSearchProps> = ({
               <div className="col-span-2 sm:col-span-1 bg-white/10 backdrop-blur-md rounded-2xl p-3.5 border border-white/10">
                 <span className="text-[11px] text-indigo-200 font-medium block">Acessibilidade PCD</span>
                 <span className="text-xl sm:text-2xl font-black text-amber-300 font-mono mt-0.5 block">
-                  ★ {currentCepData.acessibilidadeStats?.mediaNota || '5.0'} / 5.0
+                  {hasAccessibilityData ? `★ ${accessibilityStats?.mediaNota} / 5.0` : 'Sem avaliações'}
                 </span>
               </div>
             </div>
@@ -387,7 +342,10 @@ export const CepSearch: React.FC<CepSearchProps> = ({
                 <span>➔</span>
                 <span className="bg-white/10 px-2 py-0.5 rounded-md text-white font-bold">{currentCepData.fonte}</span>
                 <span>➔</span>
-                <span className="bg-emerald-500/30 text-emerald-200 px-2 py-0.5 rounded-md font-bold">Resposta Validada</span>
+                <span className="bg-emerald-500/30 text-emerald-200 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Dados encontrados
+                </span>
               </div>
             </div>
           </div>
@@ -484,7 +442,7 @@ export const CepSearch: React.FC<CepSearchProps> = ({
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/80">
                 <span className="text-slate-500 font-medium block">Bairro</span>
-                <span className="font-bold text-slate-900 mt-0.5 block truncate">{currentCepData.bairro || 'Geral'}</span>
+                <span className="font-bold text-slate-900 mt-0.5 block truncate">{currentCepData.bairro || 'Não informado'}</span>
               </div>
               <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/80">
                 <span className="text-slate-500 font-medium block">Cidade / UF</span>
@@ -494,11 +452,11 @@ export const CepSearch: React.FC<CepSearchProps> = ({
               </div>
               <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/80">
                 <span className="text-slate-500 font-medium block">Código IBGE</span>
-                <span className="font-bold text-slate-900 font-mono mt-0.5 block">{currentCepData.ibge || '3550308'}</span>
+                <span className="font-bold text-slate-900 font-mono mt-0.5 block">{currentCepData.ibge || 'Não informado'}</span>
               </div>
               <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/80">
                 <span className="text-slate-500 font-medium block">DDD Telefônico</span>
-                <span className="font-bold text-slate-900 font-mono mt-0.5 block">{currentCepData.ddd || '11'}</span>
+                <span className="font-bold text-slate-900 font-mono mt-0.5 block">{currentCepData.ddd || 'Não informado'}</span>
               </div>
             </div>
 
@@ -518,7 +476,17 @@ export const CepSearch: React.FC<CepSearchProps> = ({
                       : 'bg-rose-100 text-rose-800'
                   }`}
                 >
-                  {currentCepData.riskLevel === 'baixo' ? 'Endereço Consistente' : 'Atenção Necessária'}
+                  {currentCepData.riskLevel === 'baixo' ? (
+                    <span className="flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Endereço consistente
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      Atenção necessária
+                    </span>
+                  )}
                 </span>
               </div>
 
@@ -567,8 +535,15 @@ export const CepSearch: React.FC<CepSearchProps> = ({
                     <Accessibility className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-sm text-slate-900">Acessibilidade PCD</h3>
-                    <p className="text-[11px] text-slate-500">Norma ABNT NBR 9050</p>
+                    <h3 className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
+                      Acessibilidade PCD
+                      {hasAccessibilityData ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" aria-label="Com avaliações comunitárias" />
+                      ) : (
+                        <CircleHelp className="w-3.5 h-3.5 text-slate-400" aria-label="Sem avaliações comunitárias" />
+                      )}
+                    </h3>
+                    <p className="text-[11px] text-slate-500">Confirmações da comunidade</p>
                   </div>
                 </div>
                 <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">
@@ -579,46 +554,48 @@ export const CepSearch: React.FC<CepSearchProps> = ({
               <div className="mt-4 space-y-2.5 text-xs">
                 <div className="flex items-center justify-between py-1.5 border-b border-slate-100/80">
                   <span className="text-slate-600 font-medium">♿ Rampa & Acesso Plano</span>
-                  <span className="font-bold text-slate-900 font-mono">{currentCepData.acessibilidadeStats?.percentRampa || 0}%</span>
+                  <span className="font-bold text-slate-900 font-mono">{formatAccessibilityPercentage(currentCepData.acessibilidadeStats?.percentRampa)}</span>
                 </div>
                 <div className="flex items-center justify-between py-1.5 border-b border-slate-100/80">
                   <span className="text-slate-600 font-medium">🛗 Elevador Adaptado</span>
-                  <span className="font-bold text-slate-900 font-mono">{currentCepData.acessibilidadeStats?.percentElevador || 0}%</span>
+                  <span className="font-bold text-slate-900 font-mono">{formatAccessibilityPercentage(currentCepData.acessibilidadeStats?.percentElevador)}</span>
                 </div>
                 <div className="flex items-center justify-between py-1.5 border-b border-slate-100/80">
                   <span className="text-slate-600 font-medium">🚻 Banheiro Acessível PCD</span>
-                  <span className="font-bold text-slate-900 font-mono">{currentCepData.acessibilidadeStats?.percentBanheiro || 0}%</span>
+                  <span className="font-bold text-slate-900 font-mono">{formatAccessibilityPercentage(currentCepData.acessibilidadeStats?.percentBanheiro)}</span>
                 </div>
                 <div className="flex items-center justify-between py-1.5 border-b border-slate-100/80">
                   <span className="text-slate-600 font-medium">🅿️ Vagas Reservadas PCD</span>
-                  <span className="font-bold text-slate-900 font-mono">{currentCepData.acessibilidadeStats?.percentVagaPcd || 0}%</span>
+                  <span className="font-bold text-slate-900 font-mono">{formatAccessibilityPercentage(currentCepData.acessibilidadeStats?.percentVagaPcd)}</span>
                 </div>
                 <div className="flex items-center justify-between py-1.5 border-b border-slate-100/80">
                   <span className="text-slate-600 font-medium">🦯 Piso Tátil & Braille (Visual)</span>
-                  <span className="font-bold text-slate-900 font-mono">{currentCepData.acessibilidadeStats?.percentPisoTatil || 0}%</span>
+                  <span className="font-bold text-slate-900 font-mono">{formatAccessibilityPercentage(currentCepData.acessibilidadeStats?.percentPisoTatil)}</span>
                 </div>
                 <div className="flex items-center justify-between py-1.5 border-b border-slate-100/80">
                   <span className="text-slate-600 font-medium">🧏 Atendimento Libras (Auditiva)</span>
-                  <span className="font-bold text-slate-900 font-mono">{currentCepData.acessibilidadeStats?.percentLibras || 67}%</span>
+                  <span className="font-bold text-slate-900 font-mono">{formatAccessibilityPercentage(accessibilityStats?.percentLibras)}</span>
                 </div>
                 <div className="flex items-center justify-between py-1.5">
                   <span className="text-slate-600 font-medium">🧠 Espaço Calmo (Neurodivergência)</span>
-                  <span className="font-bold text-slate-900 font-mono">{currentCepData.acessibilidadeStats?.percentNeurodivergente || 67}%</span>
+                  <span className="font-bold text-slate-900 font-mono">{formatAccessibilityPercentage(accessibilityStats?.percentNeurodivergente)}</span>
                 </div>
               </div>
             </div>
 
             <div className="pt-4 border-t border-slate-100">
-              <div className="bg-emerald-50/80 p-4 rounded-2xl border border-emerald-200/80 flex items-center justify-between">
+              <div className={`${hasAccessibilityData ? 'bg-emerald-50/80 border-emerald-200/80' : 'bg-slate-50 border-slate-200'} p-4 rounded-2xl border flex items-center justify-between`}>
                 <div>
-                  <span className="text-xs font-bold text-emerald-950 block">Nota Comunitária</span>
-                  <span className="text-[11px] text-emerald-700">Avaliado por voluntários locais</span>
+                  <span className="text-xs font-bold text-slate-900 block">Nota Comunitária</span>
+                  <span className="text-[11px] text-slate-600">
+                    {hasAccessibilityData ? 'Avaliado por voluntários locais' : 'Ainda não há avaliações neste endereço'}
+                  </span>
                 </div>
                 <div className="text-right">
-                  <span className="text-lg font-black text-emerald-800 block">
-                    ★ {currentCepData.acessibilidadeStats?.mediaNota || '5.0'}
+                  <span className="text-lg font-black text-slate-800 block">
+                    {hasAccessibilityData ? `★ ${accessibilityStats?.mediaNota}` : 'Sem nota'}
                   </span>
-                  <span className="text-[10px] text-emerald-600 font-medium">escala de 5.0</span>
+                  <span className="text-[10px] text-slate-500 font-medium">escala de 5.0</span>
                 </div>
               </div>
             </div>
