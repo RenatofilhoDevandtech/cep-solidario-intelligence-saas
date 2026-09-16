@@ -12,6 +12,7 @@ import { ApiDocs } from './components/ApiDocs.js';
 import { PricingModal } from './components/PricingModal.js';
 import { CompanyAuthModal } from './components/CompanyAuthModal.js';
 import { Toast } from './components/Toast.js';
+import { NotFound } from './components/NotFound.js';
 import { CepData, AcessibilidadeStats, AcessibilidadeAvaliacao, CompanyUser } from './types.js';
 import {
   consultarCep,
@@ -30,11 +31,13 @@ export default function App() {
     (CepData & { acessibilidadeStats: AcessibilidadeStats; avaliacoes: AcessibilidadeAvaliacao[] }) | null
   >(null);
   const [loading, setLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isPricingOpen, setIsPricingOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [loggedCompany, setLoggedCompany] = useState<CompanyUser | null>(null);
   const [toast, setToast] = useState<{ message: string; type?: 'success' | 'error' } | null>(null);
+  const isNotFoundPath = !['/', '/index.html'].includes(window.location.pathname);
 
   // Restore corporate session from localStorage on mount (Nielsen #7 & #6)
   useEffect(() => {
@@ -48,17 +51,15 @@ export default function App() {
     }
   }, []);
 
-  // Load initial representative CEP (MASP - Av. Paulista, São Paulo)
-  useEffect(() => {
-    handleSearchCep('01310-100');
-  }, []);
-
   const handleSearchCep = async (cep: string) => {
     try {
       setLoading(true);
+      setSearchError(null);
       const data = await consultarCep(cep);
       setCurrentCepData(data);
     } catch (err: any) {
+      setCurrentCepData(null);
+      setSearchError(err.message || `Não foi possível localizar o CEP ${cep}.`);
       setToast({
         message: err.message || `CEP ${cep} não localizado na base de dados.`,
         type: 'error',
@@ -150,6 +151,10 @@ export default function App() {
     handleSearchCep(cep);
   };
 
+  if (isNotFoundPath) {
+    return <NotFound onBackToSearch={() => window.location.assign('/')} />;
+  }
+
   return (
     <div className="app-shell min-h-screen bg-[#f5f5f7] text-slate-900 flex flex-col font-['Plus_Jakarta_Sans',-apple-system,BlinkMacSystemFont,sans-serif] selection:bg-indigo-500/20">
       {/* Global Header & Nav */}
@@ -169,7 +174,12 @@ export default function App() {
             <CepSearch
               currentCepData={currentCepData}
               loading={loading}
+              errorMessage={searchError}
               onSearch={handleSearchCep}
+              onClearResults={() => {
+                setCurrentCepData(null);
+                setSearchError(null);
+              }}
               onOpenForm={() => setIsFormOpen(true)}
               onGoToMap={() => setActiveTab('map')}
             />
@@ -250,14 +260,17 @@ export default function App() {
 
       {/* Platform Footer - Refined Apple Style */}
       <footer className="bg-white/80 border-t border-slate-200/80 mt-auto py-6 pb-24 lg:pb-6 text-xs text-slate-500 apple-glass">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-slate-900 text-white flex items-center justify-center shadow-2xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex min-w-0 items-start gap-2">
+            <div className="w-6 h-6 rounded-lg bg-slate-900 text-white flex items-center justify-center shadow-2xs shrink-0">
               <HeartHandshake className="w-3.5 h-3.5 text-emerald-400" />
             </div>
-            <span className="font-bold text-slate-800">CEP Solidário</span>
-            <span>•</span>
-            <span className="truncate">Mapeamento Colaborativo de Acessibilidade PCD & Infraestrutura de Endereços</span>
+            <div className="min-w-0">
+              <div className="font-bold text-slate-800">CEP Solidário</div>
+              <div className="text-[11px] leading-relaxed text-slate-500 wrap-break-word">
+                Mapeamento colaborativo de acessibilidade e infraestrutura de endereços
+              </div>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 text-slate-600">
