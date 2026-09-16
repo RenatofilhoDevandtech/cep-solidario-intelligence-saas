@@ -27,6 +27,26 @@ CREATE TABLE IF NOT EXISTS ceps (
   INDEX idx_coordenadas (lat, lon)
 ) ENGINE=InnoDB;
 
+-- 1.1 TABELA DE PESSOAS E ENDEREÇOS (REQUISITO OFICIAL / LGPD & PERSISTÊNCIA DOCKER)
+CREATE TABLE IF NOT EXISTS pessoas (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nome VARCHAR(255) NOT NULL,
+  cpf VARCHAR(14) NOT NULL,
+  cep VARCHAR(9) NOT NULL,
+  numero VARCHAR(50) NOT NULL,
+  complemento VARCHAR(100) DEFAULT '',
+  logradouro VARCHAR(255) NOT NULL,
+  bairro VARCHAR(150) NOT NULL,
+  localidade VARCHAR(150) NOT NULL,
+  uf CHAR(2) NOT NULL,
+  estado VARCHAR(100) NOT NULL,
+  rua VARCHAR(255) NOT NULL,
+  termo_lgpd BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_pessoas_cpf (cpf),
+  INDEX idx_pessoas_cep (cep)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- 2. TABELA DE AVALIAÇÕES DE ACESSIBILIDADE PCD (CROWDSOURCING)
 CREATE TABLE IF NOT EXISTS avaliacoes (
   id VARCHAR(64) PRIMARY KEY,
@@ -170,3 +190,11 @@ INSERT INTO api_keys (id, user_id, key_prefix, key_hash, name, plan, rate_limit,
 VALUES
   ('key-dev-demo', 'usr-demo-1', 'cs_live_9b4e', 'hash_live_sample', 'Checkout E-commerce Produção', 'BUSINESS', 300, 2841, 10000),
   ('key-test-env', 'usr-demo-2', 'cs_test_881f', 'hash_test_sample', 'Chave Teste / Sandbox', 'FREE', 60, 42, 100);
+
+-- SEEDS: PESSOAS E ENDEREÇOS (REQUISITO DA AVALIAÇÃO ACADÊMICA)
+INSERT INTO pessoas (nome, cpf, cep, numero, complemento, logradouro, bairro, localidade, uf, estado, rua, termo_lgpd)
+VALUES
+  ('Ana Clara Oliveira', '123.456.789-01', '01310-100', '1578', 'Apto 42', 'Avenida Paulista', 'Bela Vista', 'São Paulo', 'SP', 'São Paulo', 'Avenida Paulista', TRUE),
+  ('Carlos Eduardo Mendes', '234.567.890-12', '22041-001', '450', 'Bloco B', 'Avenida Nossa Senhora de Copacabana', 'Copacabana', 'Rio de Janeiro', 'RJ', 'Rio de Janeiro', 'Avenida Nossa Senhora de Copacabana', TRUE),
+  ('Mariana Santos Silva', '345.678.901-23', '30130-100', '120', 'Sala 3', 'Praça da Liberdade', 'Savassi', 'Belo Horizonte', 'MG', 'Minas Gerais', 'Praça da Liberdade', TRUE);
+

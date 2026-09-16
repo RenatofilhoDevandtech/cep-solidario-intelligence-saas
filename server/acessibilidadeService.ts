@@ -3,6 +3,9 @@ export interface AvaliacaoRecord {
   cep: string;
   local_nome: string;
   usuario_nome: string;
+  numero?: string;
+  complemento?: string;
+  logradouro?: string;
   rampa_acesso: boolean;
   elevador: boolean;
   banheiro_adaptado: boolean;
@@ -32,6 +35,9 @@ const avaliacoesDb: AvaliacaoRecord[] = [
     cep: '01310-100',
     local_nome: 'MASP - Museu de Arte de São Paulo',
     usuario_nome: 'Mariana Lima (Cadeirante)',
+    numero: '1578',
+    complemento: 'Vão Livre',
+    logradouro: 'Avenida Paulista',
     rampa_acesso: true,
     elevador: true,
     banheiro_adaptado: true,
@@ -60,6 +66,9 @@ const avaliacoesDb: AvaliacaoRecord[] = [
     cep: '01310-930',
     local_nome: 'Shopping Center 3 & Estação Consolação',
     usuario_nome: 'Carlos Eduardo (Guia Cão-Guia)',
+    numero: '2064',
+    complemento: 'Piso Térreo',
+    logradouro: 'Avenida Paulista',
     rampa_acesso: true,
     elevador: true,
     banheiro_adaptado: true,
@@ -467,6 +476,9 @@ export function createAvaliacao(data: {
   comentario: string;
   fotos?: string[];
   nota_facilidade: number;
+  numero?: string;
+  complemento?: string;
+  logradouro?: string;
   lat?: number;
   lon?: number;
   cidade?: string;
@@ -481,6 +493,9 @@ export function createAvaliacao(data: {
     cep: formattedCep,
     local_nome: data.local_nome?.trim() || 'Estabelecimento / Logradouro',
     usuario_nome: data.usuario_nome?.trim() || 'Colaborador Solidário',
+    numero: data.numero?.trim() || 'S/N',
+    complemento: data.complemento?.trim() || '',
+    logradouro: data.logradouro?.trim() || '',
     rampa_acesso: Boolean(data.rampa_acesso),
     elevador: Boolean(data.elevador),
     banheiro_adaptado: Boolean(data.banheiro_adaptado),

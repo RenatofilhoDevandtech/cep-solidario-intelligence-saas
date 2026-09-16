@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -29,10 +30,30 @@ import {
   destroyCompanySession,
   authenticateApiKey,
 } from './server/b2bService.js';
+import {
+  initDb,
+  getPessoasDb,
+  createPessoaDb,
+  saveAvaliacaoDb,
+  upvoteAvaliacaoDb,
+  getDbHealth,
+} from './server/db.js';
+
+const UF_TO_ESTADO: Record<string, string> = {
+  SP: 'São Paulo', RJ: 'Rio de Janeiro', MG: 'Minas Gerais', ES: 'Espírito Santo',
+  PR: 'Paraná', SC: 'Santa Catarina', RS: 'Rio Grande do Sul',
+  BA: 'Bahia', PE: 'Pernambuco', CE: 'Ceará', MA: 'Maranhão', PB: 'Paraíba',
+  RN: 'Rio Grande do Norte', AL: 'Alagoas', PI: 'Piauí', SE: 'Sergipe',
+  DF: 'Distrito Federal', GO: 'Goiás', MT: 'Mato Grosso', MS: 'Mato Grosso do Sul',
+  AM: 'Amazonas', PA: 'Pará', RO: 'Rondônia', AC: 'Acre', AP: 'Amapá', RR: 'Roraima', TO: 'Tocantins',
+};
 
 async function startServer() {
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+
+  // Inicializa banco de dados MySQL (Volume Docker persistente)
+  await initDb();
 
   app.disable('x-powered-by');
   app.use(helmet({ contentSecurityPolicy: false }));
@@ -188,6 +209,9 @@ async function startServer() {
         cep,
         local_nome,
         usuario_nome,
+        numero,
+        complemento,
+        logradouro,
         rampa_acesso,
         elevador,
         banheiro_adaptado,
@@ -213,6 +237,7 @@ async function startServer() {
       let cidade = 'São Paulo';
       let uf = 'SP';
       let bairro = 'Centro';
+      let endLogradouro = logradouro || '';
 
       try {
         const enriched = await fetchCepWithFallback(cep);
@@ -221,6 +246,7 @@ async function startServer() {
         cidade = enriched.cidade;
         uf = enriched.uf;
         bairro = enriched.bairro;
+        endLogradouro = endLogradouro || enriched.logradouro;
       } catch {
         // use defaults
       }
@@ -229,6 +255,9 @@ async function startServer() {
         cep,
         local_nome,
         usuario_nome,
+        numero: numero || 'S/N',
+        complemento: complemento || '',
+        logradouro: endLogradouro,
         rampa_acesso,
         elevador,
         banheiro_adaptado,
@@ -249,6 +278,17 @@ async function startServer() {
         bairro,
       });
 
+      // Persiste no MySQL com volume Docker em tempo real
+      await saveAvaliacaoDb({
+        ...nova,
+        cidade,
+        uf,
+        bairro,
+        lat,
+        lon,
+        logradouro: endLogradouro || nova.local_nome,
+      });
+
       res.status(201).json({ success: true, message: 'Avaliação cadastrada com sucesso!', avaliacao: nova });
     } catch (err: any) {
       res.status(500).json({ error: err.message || 'Erro ao registrar avaliação' });
@@ -265,13 +305,131 @@ async function startServer() {
     res.json({ total: all.length, avaliacoes: all });
   });
 
-  // Upvote de avaliação
-  app.put('/api/acessibilidade/:id/upvote', (req, res) => {
+  // Upvote de avaliação com persistência no MySQL
+  app.put('/api/acessibilidade/:id/upvote', async (req, res) => {
     const result = upvoteAvaliacao(req.params.id);
     if (!result.success) {
       return res.status(404).json({ error: 'Avaliação não encontrada' });
     }
+    await upvoteAvaliacaoDb(req.params.id);
     res.json(result);
+  });
+
+  // ==========================================================
+  // REQUISITOS OFICIAIS DO TRABALHO: CADASTRO E LISTAGEM DE PESSOAS
+  // ==========================================================
+
+  // GET /api/pessoas - Listagem de pessoas e seus endereços persistidos no MySQL
+  app.get('/api/pessoas', async (req, res) => {
+    try {
+      const pessoas = await getPessoasDb();
+      res.json(pessoas);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Erro ao consultar pessoas cadastradas.' });
+    }
+  });
+
+  // POST /api/pessoas - Cadastro de nova pessoa com validação e auto-completar de CEP
+  app.post('/api/pessoas', async (req, res) => {
+    try {
+      const {
+        nome,
+        cpf,
+        cep,
+        numero,
+        complemento,
+        logradouro,
+        bairro,
+        localidade,
+        uf,
+        estado,
+        rua,
+        termo_lgpd,
+      } = req.body;
+
+      if (!nome || !nome.trim()) {
+        return res.status(400).json({ error: 'Campo obrigatório: Nome' });
+      }
+      if (!cpf || !cpf.trim()) {
+        return res.status(400).json({ error: 'Campo obrigatório: CPF' });
+      }
+      if (!cep || !cep.trim()) {
+        return res.status(400).json({ error: 'Campo obrigatório: CEP' });
+      }
+      if (!numero || !numero.trim()) {
+        return res.status(400).json({ error: 'Campo obrigatório: Número' });
+      }
+
+      // Se algum dado de endereço não foi enviado pelo formulário, busca automaticamente via CEP
+      let endLogradouro = logradouro;
+      let endBairro = bairro;
+      let endLocalidade = localidade;
+      let endUf = uf;
+      let endEstado = estado;
+      let endRua = rua || logradouro;
+
+      if (!endLogradouro || !endBairro || !endLocalidade || !endUf || !endEstado) {
+        try {
+          const cepData = await fetchCepWithFallback(cep);
+          endLogradouro = endLogradouro || cepData.logradouro || 'Não informado';
+          endBairro = endBairro || cepData.bairro || 'Não informado';
+          endLocalidade = endLocalidade || cepData.cidade || 'Não informada';
+          endUf = endUf || cepData.uf || 'SP';
+          endEstado = endEstado || UF_TO_ESTADO[endUf.toUpperCase()] || cepData.cidade || 'Não informado';
+          endRua = endRua || endLogradouro || 'Não informada';
+        } catch {
+          endLogradouro = endLogradouro || 'Não informado';
+          endBairro = endBairro || 'Não informado';
+          endLocalidade = endLocalidade || 'Não informada';
+          endUf = endUf || 'SP';
+          endEstado = endEstado || UF_TO_ESTADO[endUf.toUpperCase()] || 'São Paulo';
+          endRua = endRua || endLogradouro;
+        }
+      }
+
+      const novaPessoa = await createPessoaDb({
+        nome,
+        cpf,
+        cep,
+        numero,
+        complemento: complemento || '',
+        logradouro: endLogradouro,
+        bairro: endBairro,
+        localidade: endLocalidade,
+        uf: endUf.toUpperCase(),
+        estado: endEstado,
+        rua: endRua,
+        termo_lgpd: termo_lgpd !== false,
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'Pessoa e endereço cadastrados com sucesso!',
+        pessoa: novaPessoa,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Erro ao processar cadastro de pessoa.' });
+    }
+  });
+
+  // GET /api/system/docker-status - Telemetria de arquitetura Docker e volume
+  app.get('/api/system/docker-status', (req, res) => {
+    res.json({
+      status: 'online',
+      services: {
+        frontend: { container: 'cep_solidario_frontend', port: 3000, type: 'Nginx Reverse Proxy' },
+        backend: { container: 'cep_solidario_backend', port: 5000, type: 'Node.js Express REST API' },
+        database: {
+          container: 'cep_solidario_mysql',
+          port: 3306,
+          volume: 'mysql_data',
+          mountPoint: '/var/lib/mysql',
+          ...getDbHealth(),
+        },
+      },
+      network: 'cep_network (bridge)',
+      timestamp: new Date().toISOString(),
+    });
   });
 
   // Mapa colaborativo num raio
