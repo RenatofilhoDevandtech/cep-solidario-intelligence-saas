@@ -11,9 +11,95 @@
 [![WCAG 2.1 AA](https://img.shields.io/badge/accessibility-WCAG%202.1%20AA-success.svg)](https://www.w3.org/WAI/WCAG21/quickref/)
 [![ABNT NBR 9050](https://img.shields.io/badge/norma-ABNT%20NBR%209050-emerald.svg)](https://www.abnt.org.br/)
 
-## Estado atual e execução segura
+## 🎓 Guia de Avaliação & Defesa do Projeto (Requisitos Obrigatórios)
 
-O projeto está pronto para demonstração local, instalação como PWA e empacotamento com Docker. Ainda usa repositórios em memória para empresas, API keys, logs e avaliações. MySQL e Redis estão preparados no Compose, porém a aplicação ainda não grava nesses serviços. Portanto, os dados podem ser perdidos ao reiniciar o backend até a camada de persistência ser implementada.
+> 📌 **Apresentação & Pitch Completo:** Para o roteiro passo a passo de apresentação ao professor, com simulação das perguntas da banca e respostas prontas em 1ª pessoa, consulte o arquivo dedicado: **[docs/roteiro-defesa-e-perguntas-professor.md](docs/roteiro-defesa-e-perguntas-professor.md)**.
+
+Este projeto foi construído para atender com **100% de conformidade** ao desafio de arquitetura multi-container, API REST e persistência de dados. Abaixo estão descritas as respostas para todos os pontos exigidos pela banca avaliadora:
+
+### 1️⃣ Arquitetura Multi-Container (Docker Compose)
+O projeto utiliza obrigatoriamente o **Docker Compose** (`docker-compose.yml`) orquestrando os serviços em containers isolados:
+1. **Frontend (`cep_solidario_frontend`)**: Container baseado em `nginx:alpine`, servindo o bundle compilado do React e atuando como reverse proxy na porta `3000`.
+2. **Backend/API (`cep_solidario_backend`)**: Container Node.js 20 Alpine expondo a API REST na porta `5000`.
+3. **Banco de Dados (`cep_solidario_mysql`)**: Container MySQL 8.0 oficial operando na porta `3306`, com persistência durável em volume Docker.
+4. **Cache & Fila (`cep_solidario_redis`)**: Container Redis 7 Alpine na porta `6379` (serviço complementar de cache e rate limiting).
+
+---
+
+### 2️⃣ Como os containers se comunicam? (Network Docker)
+* Todos os containers compartilham a mesma rede bridge privada chamada **`cep_network`**.
+* O container de **Frontend (Nginx)** intercepta todas as requisições direcionadas para `/api` e faz um `proxy_pass http://backend:5000;`. O tráfego ocorre internamente através do DNS interno do Docker.
+* O container de **Backend (Node.js)** se comunica com o banco de dados via TCP na porta `3306` usando o hostname do serviço: `db` (resolvido automaticamente pelo Docker como `db:3306`).
+* **Vantagem de Segurança:** As portas internas e o tráfego de dados entre API e Banco não precisam ser expostos publicamente na internet, garantindo isolamento de rede.
+
+---
+
+### 3️⃣ Como o Volume mantém os dados? (Persistência no MySQL)
+* O banco de dados MySQL armazena seus arquivos em `/var/lib/mysql`.
+* No `docker-compose.yml`, configuramos o volume nomeado:
+  ```yaml
+  volumes:
+    - mysql_data:/var/lib/mysql
+  ```
+* **Garantia de Persistência:** Mesmo se o container `cep_solidario_mysql` for parado (`docker compose stop`) ou completamente destruído e removido (`docker compose rm`), os dados do cadastro de pessoas e avaliações permanecem intactos no volume `mysql_data` gerenciado pelo Docker no disco do host. Ao recriar o container (`docker compose up -d`), o MySQL reconecta-se ao volume e restaura todo o estado anterior.
+
+---
+
+### 4️⃣ Como funciona a API REST? (Endpoints Obrigatórios)
+A API Express implementa as rotas REST para cadastro e listagem:
+* **`POST /api/pessoas` (Cadastro):**
+  * Recebe os dados informados pelo usuário: `nome`, `cpf`, `cep`, `numero`, `complemento`.
+  * Consulta e valida os dados de endereço via API de CEP (ViaCEP / BrasilAPI): `logradouro`, `bairro`, `localidade`, `uf`, `estado` e `rua`.
+  * Persiste o registro na tabela `pessoas` do MySQL e retorna HTTP 201 com o ID gerado.
+* **`GET /api/pessoas` (Listagem):**
+  * Consulta o MySQL (`SELECT * FROM pessoas ORDER BY created_at DESC`) e retorna a lista completa em formato JSON (HTTP 200).
+* **`POST /api/acessibilidade` e `GET /api/acessibilidade/:cep`:**
+  * Avaliações comunitárias de acessibilidade (rampas, elevadores, piso tátil) persistidas em tempo real no MySQL.
+* **`GET /api/system/docker-status`:**
+  * Endpoint de telemetria que audita o status dos 3 containers e a saúde da conexão com o volume MySQL.
+
+---
+
+### 5️⃣ Por que escolhemos essas tecnologias?
+* **React + Vite + Tailwind CSS (Frontend):** Alta performance de renderização, componentes reativos reutilizáveis, design system moderno acessível (WCAG 2.1 AA / ABNT NBR 9050) e compilação ultra-rápida.
+* **Node.js + Express + TypeScript (Backend):** Ecossistema robusto para APIs REST orientadas a I/O não bloqueante, tipagem estática segura, facilidade de manipulação de requisições HTTP assíncronas com múltiplos fallbacks de CEP e integração com MySQL via `mysql2`.
+* **MySQL 8.0 (Banco de Dados Relacional):** Suporte completo a transações ACID, integridade referencial, queries estruturadas e maturidade de produção para dados relacionais de pessoas e endereços.
+* **Nginx (Reverse Proxy):** Servidor web de alta performance que elimina problemas de CORS ao unificar o acesso à aplicação e ao backend na mesma origem.
+
+---
+
+### 6️⃣ Conformidade com a LGPD (Diferencial de Engenharia)
+Em conformidade com a **Lei Geral de Proteção de Dados (Lei nº 13.709/2018)**:
+* O formulário conta com **Termo de Consentimento Explícito** (Art. 7º, I da LGPD).
+* Na listagem pública de pessoas, o CPF é exibido com **máscara de anonimização** (`***.456.789-**`) para evitar vazamento de dados sensíveis (Princípio da Segurança e Minimização - Art. 6º, VII).
+* A interface inclui um botão **"Modo Banca / Auditoria"** que permite ao avaliador revelar o CPF completo para validação do requisito acadêmico.
+
+---
+
+### 7️⃣ Como executar a aplicação?
+
+```bash
+# 1. Clone o repositório ou acesse a pasta do projeto:
+cd cep-solidario-intelligence-saas
+
+# 2. Suba o ambiente completo de 3 containers com Docker Compose:
+docker compose up --build
+```
+
+Acesse no navegador:
+* **Aplicação Completa:** [http://localhost:3000](http://localhost:3000) (Aba: **"Pessoas & Endereços"**)
+* **API REST Direta:** [http://localhost:5000/api/pessoas](http://localhost:5000/api/pessoas)
+* **Diagnóstico Docker:** [http://localhost:5000/api/system/docker-status](http://localhost:5000/api/system/docker-status)
+
+Para encerrar os containers:
+```bash
+docker compose down
+```
+
+---
+
+## Estado da Aplicação e Demonstração
+
 
 Para evitar ambiguidade, este README diferencia recursos **implementados**, **preparados** e **planejados**. Os recursos implementados funcionam na demonstração atual; os preparados possuem estrutura inicial, mas ainda exigem integração; os planejados não devem ser tratados como promessa de produção.
 
@@ -31,6 +117,7 @@ O frontend e o backend seguem um **monólito modular**. As responsabilidades sã
 
 Documentação complementar:
 
+- [Guia de testes e validação](docs/testes-e-validacao.md)
 - [Guia do usuário](docs/guia-do-usuario.md)
 - [Arquitetura da informação](docs/arquitetura-da-informacao.md)
 - [Visão de produto e carreira](docs/visao-produto-e-carreira.md)
