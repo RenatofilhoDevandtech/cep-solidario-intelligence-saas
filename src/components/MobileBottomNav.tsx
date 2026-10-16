@@ -24,7 +24,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 }) => {
   return (
     <nav
-      aria-label="Navegação móvel inferior estilo iOS"
+      aria-label="Navegação principal"
       className="mobile-bottom-nav lg:hidden fixed bottom-0 left-0 right-0 z-40 apple-liquid-glass border-t border-slate-200/80 shadow-[0_-10px_30px_rgba(0,0,0,0.08)] pb-safe"
     >
       <div className="w-full max-w-xl mx-auto px-2 sm:px-4 py-2 flex items-center justify-between relative">
@@ -180,4 +180,3 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     </nav>
   );
 };
-

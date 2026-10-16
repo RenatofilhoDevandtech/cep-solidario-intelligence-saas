@@ -148,37 +148,38 @@ export const CepSearch: React.FC<CepSearchProps> = ({
   return (
     <div className="space-y-6">
       {/* 1. Top Header & Search Area (Apple Spotlight Style) */}
-      <div className="relative overflow-hidden rounded-3xl bg-white p-5 sm:p-8 text-slate-900 border border-slate-200/80 shadow-[0_14px_40px_-24px_rgba(15,23,42,0.25)] transition-all">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-linear-to-r from-indigo-500 via-emerald-400 to-indigo-500" />
+      <div className="search-hero relative isolate overflow-hidden rounded-3xl bg-[#0c2438] p-5 sm:p-8 text-white border border-slate-700/50 shadow-[0_28px_80px_-42px_rgba(12,36,56,0.72)] transition-all">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-32 h-80 w-80 rounded-full bg-emerald-400/15 blur-3xl" />
+        <div aria-hidden="true" className="pointer-events-none absolute -bottom-40 left-1/3 h-72 w-72 rounded-full bg-blue-400/10 blur-3xl" />
         <div className="relative">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="search-intro flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-bold mb-3">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-emerald-100 text-xs font-bold mb-3">
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
               <span>Consulta de endereço com dados transparentes</span>
             </div>
-            <h1 className="max-w-2xl text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
+            <h1 className="max-w-2xl text-2xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight">
               Encontre um endereço. Planeje melhor o caminho.
             </h1>
-            <p className="max-w-xl text-slate-600 text-xs sm:text-sm mt-2 leading-relaxed">
+            <p className="max-w-xl text-slate-300 text-sm sm:text-base mt-3 leading-relaxed">
               Consulte o CEP, confira os dados do endereço e veja se existem relatos de acessibilidade.
             </p>
           </div>
 
-          <div className="hidden lg:flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-2xl p-3 shrink-0">
-            <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-sm">
+          <div className="hidden lg:flex items-center gap-3 bg-white/10 border border-white/15 rounded-2xl p-3 shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-emerald-400 text-slate-950 flex items-center justify-center font-black text-sm">
               BR
             </div>
             <div className="text-left">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Em todo o Brasil</span>
-              <span className="text-xs font-bold text-slate-800">Endereços e acessibilidade</span>
+              <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block">Consulta nacional</span>
+              <span className="text-xs font-bold text-white">Endereços e acessibilidade</span>
             </div>
           </div>
         </div>
 
         {/* Search Input Bar */}
-        <form onSubmit={handleSubmit} className="mt-7">
-          <label htmlFor="input-cep-search" className="mb-2 block text-xs font-bold uppercase tracking-wider text-indigo-700">
+        <form onSubmit={handleSubmit} className="search-form mt-7">
+          <label htmlFor="input-cep-search" className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-200">
             Consulte um CEP
           </label>
           <div className="flex flex-col sm:flex-row gap-2.5 max-w-3xl">
@@ -193,7 +194,7 @@ export const CepSearch: React.FC<CepSearchProps> = ({
                 onChange={handleInputChange}
                 placeholder="Digite o CEP (ex: 01310-100)"
                 aria-label="Código Postal (CEP)"
-                className="w-full pl-12 pr-11 py-3.5 bg-white hover:bg-slate-50 focus:bg-white border border-white/60 focus:border-emerald-400 rounded-xl text-slate-900 font-mono text-base font-semibold transition-all outline-none focus:ring-4 focus:ring-emerald-300/25 shadow-lg"
+                className="w-full pl-12 pr-11 py-3.5 bg-white hover:bg-slate-50 focus:bg-white border border-white focus:border-emerald-500 rounded-xl text-slate-900 font-mono text-base font-semibold transition-all outline-none focus:ring-4 focus:ring-emerald-300/30 shadow-md"
                 maxLength={9}
               />
               {inputCep && (
@@ -214,7 +215,7 @@ export const CepSearch: React.FC<CepSearchProps> = ({
               id="btn-search-cep"
               type="submit"
               disabled={loading || digitsCount !== 8}
-              className="px-6 py-3.5 bg-slate-900 hover:bg-slate-800 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed text-white font-extrabold rounded-xl text-sm shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer select-none"
+              className="px-6 py-3.5 bg-emerald-400 hover:bg-emerald-300 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-extrabold rounded-xl text-sm shadow-lg shadow-emerald-950/20 transition-all flex items-center justify-center gap-2 cursor-pointer select-none"
               style={{ minHeight: '48px' }}
             >
               {loading ? (
@@ -232,7 +233,7 @@ export const CepSearch: React.FC<CepSearchProps> = ({
           </div>
 
           {inputCep.length > 0 && digitsCount < 8 && (
-            <p className="text-xs text-amber-700 font-medium mt-2 flex items-center gap-1.5">
+            <p className="text-xs text-amber-200 font-medium mt-2 flex items-center gap-1.5">
               <span>Faltam {8 - digitsCount} dígitos para completar o CEP de 8 números.</span>
             </p>
           )}
@@ -247,20 +248,22 @@ export const CepSearch: React.FC<CepSearchProps> = ({
           />
         )}
 
-        <CepQuickAccess
-          presets={PRESET_CEPS}
-          recentCeps={recentCeps}
-          onSearch={(cep) => {
-            setInputCep(cep);
-            onSearch(cep);
-          }}
-          onFocusSearch={() => {
-            const input = document.getElementById('input-cep-search') as HTMLInputElement | null;
-            input?.focus();
-            input?.select();
-          }}
-          onClearHistory={handleClearHistory}
-        />
+        <div className="quick-access-panel mt-7 rounded-2xl bg-white p-4 text-slate-900 shadow-[0_16px_40px_-28px_rgba(0,0,0,0.5)] sm:p-5">
+          <CepQuickAccess
+            presets={PRESET_CEPS}
+            recentCeps={recentCeps}
+            onSearch={(cep) => {
+              setInputCep(cep);
+              onSearch(cep);
+            }}
+            onFocusSearch={() => {
+              const input = document.getElementById('input-cep-search') as HTMLInputElement | null;
+              input?.focus();
+              input?.select();
+            }}
+            onClearHistory={handleClearHistory}
+          />
+        </div>
         </div>
       </div>
 

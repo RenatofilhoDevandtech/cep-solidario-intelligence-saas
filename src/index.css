@@ -36,10 +36,106 @@
 
 .app-shell {
   min-height: 100svh;
+  overflow-x: clip;
 }
 
 .app-main {
   width: min(100% - 1.5rem, 80rem);
+}
+
+.search-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.18) 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: 0.2;
+  mask-image: linear-gradient(110deg, #000, transparent 72%);
+}
+
+.search-hero input:focus-visible {
+  outline: 3px solid #34d399;
+  outline-offset: 2px;
+}
+
+@media (min-width: 1280px) {
+  .search-hero > .relative {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(22rem, 0.9fr);
+    grid-template-rows: auto auto 1fr;
+    align-items: center;
+    column-gap: clamp(2.5rem, 5vw, 5rem);
+    row-gap: 1.5rem;
+  }
+
+  .search-intro {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .search-intro > div:last-child {
+    display: none;
+  }
+
+  .search-form {
+    grid-column: 1;
+    grid-row: 2;
+    max-width: none;
+    margin-top: 0;
+    align-self: start;
+  }
+
+  .search-form > div {
+    max-width: none;
+  }
+
+  .quick-access-panel {
+    grid-column: 2;
+    grid-row: 1 / 4;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    margin-top: 0;
+    padding: clamp(1.25rem, 2vw, 2rem);
+  }
+
+  .quick-access-panel > div {
+    width: 100%;
+    margin-top: 0;
+    border-top: 0;
+    padding-top: 0;
+  }
+
+  .quick-cep-list {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    justify-items: center;
+    gap: 1rem 0.5rem;
+    overflow: visible;
+  }
+
+  .quick-cep-item:nth-child(5) {
+    grid-column: 2;
+  }
+
+  .quick-cep-item:nth-child(6) {
+    grid-column: 3;
+  }
+
+  .quick-cep-item:nth-child(7) {
+    grid-column: 4;
+  }
+
+  .quick-cep-item {
+    min-width: 0;
+  }
+}
+
+:where(button, a, input, select, textarea):focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
 }
 
 .header-main {
@@ -89,13 +185,19 @@
   padding-bottom: max(0.35rem, env(safe-area-inset-bottom));
 }
 
-@media (max-width: 1023px) {
+@media (max-width: 1279px) {
   .app-main {
-    width: min(100% - 1.25rem, 48rem);
+    width: min(100% - 2rem, 72rem);
   }
 
   .dashboard-page .apple-obsidian-card {
     border-radius: 1.5rem;
+  }
+}
+
+@media (max-width: 1023px) {
+  .header-main {
+    row-gap: 0.5rem;
   }
 }
 
@@ -186,6 +288,7 @@ body.high-contrast {
 body.high-contrast .apple-card,
 body.high-contrast .apple-liquid-glass,
 body.high-contrast .apple-glass,
+body.high-contrast .search-hero,
 body.high-contrast .bg-white,
 body.high-contrast .bg-slate-50,
 body.high-contrast .bg-slate-100,
@@ -374,4 +477,3 @@ body.large-font h2 {
 .apple-fab-glow-coral {
   box-shadow: 0 8px 24px -4px rgba(234, 88, 12, 0.45), 0 0 0 4px #ffffff;
 }
-

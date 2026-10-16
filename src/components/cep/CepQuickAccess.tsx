@@ -34,11 +34,11 @@ export const CepQuickAccess: React.FC<CepQuickAccessProps> = ({
         <span className="text-[11px] text-slate-400">Escolha uma cidade para começar</span>
       </div>
 
-      <div className="no-scrollbar -mx-1 flex items-center gap-3 overflow-x-auto px-1 pb-1">
+      <div className="quick-cep-list no-scrollbar -mx-1 flex items-center gap-3 overflow-x-auto px-1 pb-1">
         <button
           type="button"
           onClick={onFocusSearch}
-          className="group flex min-w-20 flex-col items-center justify-center transition-all"
+          className="quick-cep-item group flex min-w-20 flex-col items-center justify-center transition-all"
         >
           <span className="flex h-13 w-13 items-center justify-center rounded-full border-2 border-dashed border-indigo-300 bg-indigo-50/50 text-indigo-600 shadow-2xs transition-colors group-hover:border-indigo-600 group-active:scale-95">
             <Plus className="h-5 w-5" aria-hidden="true" />
@@ -51,7 +51,7 @@ export const CepQuickAccess: React.FC<CepQuickAccessProps> = ({
             key={item.cep}
             type="button"
             onClick={() => onSearch(item.cep)}
-            className="group flex min-w-20 flex-col items-center justify-center transition-all"
+            className="quick-cep-item group flex min-w-20 flex-col items-center justify-center transition-all"
           >
             <span className="flex h-13 w-13 items-center justify-center rounded-full border border-slate-200/80 bg-slate-100 text-xl shadow-2xs transition-all group-hover:border-indigo-500 group-hover:bg-indigo-50/80 group-active:scale-95">
               {item.emoji}

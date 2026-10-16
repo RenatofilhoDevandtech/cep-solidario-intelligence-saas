@@ -176,7 +176,7 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Main Apple-style Bar */}
-      <div className="header-main max-w-screen-2xl mx-auto px-3 sm:px-8 flex min-w-0 items-center justify-between gap-3 sm:gap-8 lg:grid lg:grid-cols-[minmax(220px,1fr)_auto_minmax(220px,1fr)]">
+      <div className="header-main max-w-screen-2xl mx-auto px-3 sm:px-8 flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 sm:gap-x-8">
         {/* Brand Identity */}
         <div
           onClick={() => setActiveTab('search')}
@@ -199,12 +199,12 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Apple Segmented Control Navigation (Visible on Large Tablet & Desktop) */}
         <nav
-          className="hidden lg:flex items-center justify-center bg-slate-200/60 p-1 rounded-2xl backdrop-blur-md border border-slate-300/40 shadow-inner justify-self-center"
-          aria-label="Segmented Navigation"
+          className="hidden lg:flex order-last w-full items-center justify-center gap-0.5 overflow-x-auto no-scrollbar bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-inner"
+          aria-label="Navegação principal"
         >
           <button
             onClick={() => setActiveTab('search')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs transition-all duration-200 ${
+            className={`flex shrink-0 items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs transition-all duration-200 ${
               activeTab === 'search'
                 ? 'bg-white text-slate-900 shadow-sm font-bold scale-[1.02]'
                 : 'text-slate-600 hover:text-slate-900 font-medium'
@@ -216,7 +216,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           <button
             onClick={() => setActiveTab('map')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs transition-all duration-200 ${
+            className={`flex shrink-0 items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs transition-all duration-200 ${
               activeTab === 'map'
                 ? 'bg-white text-slate-900 shadow-sm font-bold scale-[1.02]'
                 : 'text-slate-600 hover:text-slate-900 font-medium'
@@ -228,7 +228,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           <button
             onClick={() => setActiveTab('pessoas')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs transition-all duration-200 ${
+            className={`flex shrink-0 items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs transition-all duration-200 ${
               activeTab === 'pessoas'
                 ? 'bg-white text-indigo-950 shadow-sm font-bold scale-[1.02]'
                 : 'text-slate-600 hover:text-slate-900 font-medium'
@@ -243,7 +243,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           <button
             onClick={() => setActiveTab('dashboard')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs transition-all duration-200 ${
+            className={`flex shrink-0 items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs transition-all duration-200 ${
               activeTab === 'dashboard'
                 ? 'bg-white text-slate-900 shadow-sm font-bold scale-[1.02]'
                 : 'text-slate-600 hover:text-slate-900 font-medium'
@@ -264,7 +264,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           <button
             onClick={() => setActiveTab('batch')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs transition-all duration-200 ${
+            className={`flex shrink-0 items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs transition-all duration-200 ${
               activeTab === 'batch'
                 ? 'bg-white text-slate-900 shadow-sm font-bold scale-[1.02]'
                 : 'text-slate-600 hover:text-slate-900 font-medium'
@@ -276,7 +276,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           <button
             onClick={() => setActiveTab('widget')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs transition-all duration-200 ${
+            className={`flex shrink-0 items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs transition-all duration-200 ${
               activeTab === 'widget'
                 ? 'bg-white text-slate-900 shadow-sm font-bold scale-[1.02]'
                 : 'text-slate-600 hover:text-slate-900 font-medium'
@@ -288,7 +288,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           <button
             onClick={() => setActiveTab('docs')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs transition-all duration-200 ${
+            className={`flex shrink-0 items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs transition-all duration-200 ${
               activeTab === 'docs'
                 ? 'bg-white text-slate-900 shadow-sm font-bold scale-[1.02]'
                 : 'text-slate-600 hover:text-slate-900 font-medium'
@@ -353,4 +353,3 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
-
