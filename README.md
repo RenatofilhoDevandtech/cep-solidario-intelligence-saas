@@ -45,27 +45,69 @@ npm run dev
 
 Acesse `http://localhost:3000`. Sem MySQL, o modo de desenvolvimento usa memória; esses dados não são duráveis.
 
+## Executar localmente pelo WSL (Ubuntu)
+
+Como o Docker está instalado/ativo no WSL deste ambiente, use o terminal Ubuntu. No PowerShell, entre nele com `wsl -d Ubuntu`; depois execute:
+
+```bash
+cd /mnt/c/Users/renato/Downloads/projetos-aleatorio-estudos/cep-solidario-intelligence-saas
+npm ci
+npm run lint
+npm run build
+npm run test:security
+```
+
+Para testar a API localmente sem Docker, inicie `npm run dev` em um terminal WSL e, em outro terminal WSL, na mesma pasta, execute:
+
+```bash
+npm run test:api
+```
+
+Esse modo pode usar o fallback de memória se MySQL não estiver ativo. Não demonstra persistência durável.
+
 ## Executar com Docker Compose
 
 1. Copie `.env.example` para `.env`.
 2. Substitua `MYSQL_ROOT_PASSWORD` e `MYSQL_PASSWORD` por segredos fortes e exclusivos. Não publique `.env`.
-3. Inicie a aplicação:
+3. No WSL, entre na pasta do projeto e valide a configuração:
 
-```powershell
-docker compose up --build
+```bash
+cd /mnt/c/Users/renato/Downloads/projetos-aleatorio-estudos/cep-solidario-intelligence-saas
+docker compose config --quiet
+```
+
+4. Construa e inicie os serviços:
+
+```bash
+docker compose up --build -d
+docker compose ps
 ```
 
 - Interface: `http://localhost:3000`
 - API: `http://localhost:5000/api/health`
 - Diagnóstico: `http://localhost:5000/api/system/docker-status`
 
+Veja logs se algum serviço não ficar saudável:
+
+```bash
+docker compose logs --tail=100 db backend frontend
+```
+
+Depois de alterar o código, rode `docker compose up --build -d` novamente para reconstruir e substituir os containers deste Compose. Para apenas acompanhar a inicialização, use `docker compose logs -f backend`.
+
 Para encerrar sem apagar o volume:
 
-```powershell
+```bash
 docker compose down
 ```
 
 `docker compose down -v` remove o volume e apaga os dados locais do MySQL; use somente se essa for a intenção.
+
+## Falha no deploy
+
+O repositório não contém workflow do GitHub Actions (`.github/workflows`) e não há execuções de Actions registradas para a branch `main`. Portanto, o push por si só não publica uma implantação; ela depende do serviço externo onde o deploy foi configurado.
+
+Antes de investigar um deploy remoto, valide localmente com `npm run lint`, `npm run build` e `npm run test:security`, ou construa as imagens com `docker compose build`. Se o deploy continuar falhando, consulte os logs do provedor (por exemplo, Render, Railway, Vercel ou outro) e compartilhe o nome do serviço, etapa que falhou e mensagem de erro relevante, removendo tokens, senhas e variáveis secretas.
 
 ## Rotas principais
 
