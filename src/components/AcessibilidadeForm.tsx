@@ -20,7 +20,6 @@ interface AcessibilidadeFormProps {
   onSubmit: (data: {
     cep: string;
     local_nome: string;
-    usuario_nome: string;
     numero?: string;
     complemento?: string;
     logradouro?: string;
@@ -52,7 +51,6 @@ export const AcessibilidadeForm: React.FC<AcessibilidadeFormProps> = ({
 }) => {
   const [cep, setCep] = useState(defaultCep || '');
   const [localNome, setLocalNome] = useState('');
-  const [usuarioNome, setUsuarioNome] = useState('');
   const [numero, setNumero] = useState('');
   const [complemento, setComplemento] = useState('');
   const [logradouro, setLogradouro] = useState(defaultLogradouro || '');
@@ -103,10 +101,6 @@ export const AcessibilidadeForm: React.FC<AcessibilidadeFormProps> = ({
       setErrorMsg('Por favor, informe o nome do local ou comércio.');
       return;
     }
-    if (!usuarioNome.trim()) {
-      setErrorMsg('Por favor, informe o seu nome ou como prefere ser chamado.');
-      return;
-    }
     if (!comentario.trim()) {
       setErrorMsg('Por favor, descreva as condições de acessibilidade observadas.');
       return;
@@ -120,7 +114,6 @@ export const AcessibilidadeForm: React.FC<AcessibilidadeFormProps> = ({
       await onSubmit({
         cep: cep || defaultCep,
         local_nome: localNome.trim(),
-        usuario_nome: usuarioNome.trim(),
         numero: numero.trim() || 'S/N',
         complemento: complemento.trim(),
         logradouro: logradouro.trim() || defaultLogradouro || '',
@@ -215,36 +208,23 @@ export const AcessibilidadeForm: React.FC<AcessibilidadeFormProps> = ({
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5" htmlFor="input-local-name">
-                Nome do Local / Estabelecimento *
-              </label>
-              <input
-                id="input-local-name"
-                type="text"
-                value={localNome}
-                onChange={(e) => setLocalNome(e.target.value)}
-                placeholder="Ex: Farmácia São Paulo, MASP, Padaria"
-                className="w-full px-3.5 py-2.5 bg-slate-100/70 hover:bg-slate-100 focus:bg-white border border-slate-200 focus:border-indigo-600 rounded-xl text-xs sm:text-sm text-slate-900 outline-none transition-all focus:ring-3 focus:ring-indigo-500/15"
-                required
-              />
-            </div>
+          <p className="text-xs text-slate-600 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+            Seu nome não é solicitado nem publicado. Os relatos são comunitários e não passam por auditoria independente.
+          </p>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5" htmlFor="input-user-name">
-                Seu Nome ou Identificação *
-              </label>
-              <input
-                id="input-user-name"
-                type="text"
-                value={usuarioNome}
-                onChange={(e) => setUsuarioNome(e.target.value)}
-                placeholder="Ex: Clara (Cadeirante) ou João (Morador)"
-                className="w-full px-3.5 py-2.5 bg-slate-100/70 hover:bg-slate-100 focus:bg-white border border-slate-200 focus:border-indigo-600 rounded-xl text-xs sm:text-sm text-slate-900 outline-none transition-all focus:ring-3 focus:ring-indigo-500/15"
-                required
-              />
-            </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5" htmlFor="input-local-name">
+              Nome do Local / Estabelecimento *
+            </label>
+            <input
+              id="input-local-name"
+              type="text"
+              value={localNome}
+              onChange={(e) => setLocalNome(e.target.value)}
+              placeholder="Ex: Farmácia São Paulo, MASP, Padaria"
+              className="w-full px-3.5 py-2.5 bg-slate-100/70 hover:bg-slate-100 focus:bg-white border border-slate-200 focus:border-indigo-600 rounded-xl text-xs sm:text-sm text-slate-900 outline-none transition-all focus:ring-3 focus:ring-indigo-500/15"
+              required
+            />
           </div>
 
           {/* Localização específica no logradouro: Número e Complemento */}

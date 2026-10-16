@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   X,
   Check,
-  CreditCard,
   ShieldCheck,
-  ArrowRight,
 } from 'lucide-react';
 import { PlanInfo } from '../types.js';
 
@@ -28,7 +26,7 @@ const PLANS: PlanInfo[] = [
       'Triplo fallback (ViaCEP + BrasilAPI + AwesomeAPI)',
       'Acesso ao mapa colaborativo de acessibilidade',
       'Exportação de dados abertos em CSV',
-      'Documentação OpenAPI interativa',
+      'Especificação OpenAPI em JSON',
     ],
   },
   {
@@ -40,11 +38,7 @@ const PLANS: PlanInfo[] = [
     consultasMes: '10.000 consultas / mês',
     consultasDia: 350,
     features: [
-      '10.000 consultas / mês',
-      'Rate limit de 120 req/min',
-      'Score de consistência do endereço',
-      'Widget de checkout embeddable',
-      'Suporte técnico por e-mail em até 24h',
+      'Plano conceitual: limites e recursos ainda não disponíveis',
     ],
   },
   {
@@ -58,12 +52,7 @@ const PLANS: PlanInfo[] = [
     recommended: true,
     badge: 'Mais Recomendado',
     features: [
-      '100.000 consultas / mês',
-      'Rate limit de 300 req/min',
-      'Indicadores completos de acessibilidade PCD',
-      'Validador em lote para planilhas',
-      'SLA contratual de 99.9%',
-      'Emissão de Nota Fiscal eletrônica automática',
+      'Plano conceitual: limites e recursos ainda não disponíveis',
     ],
   },
   {
@@ -76,12 +65,7 @@ const PLANS: PlanInfo[] = [
     consultasDia: 35000,
     badge: 'Alta Escala',
     features: [
-      '1.000.000 consultas / mês',
-      'Rate limit de 1.200 req/min',
-      'Cluster dedicado de cache Redis',
-      'Webhooks em tempo real',
-      'Atendimento e gerente de contas dedicado',
-      'Faturamento corporativo por boleto bancário',
+      'Plano conceitual: limites e recursos ainda não disponíveis',
     ],
   },
 ];
@@ -93,10 +77,6 @@ export const PricingModal: React.FC<PricingModalProps> = ({
 }) => {
   const [selectedPlan, setSelectedPlan] = useState<PlanInfo | null>(null);
   const [checkoutStep, setCheckoutStep] = useState<'select' | 'stripe'>('select');
-  const [email, setEmail] = useState('compras@empresa.com.br');
-  const [cardNumber, setCardNumber] = useState('4242 •••• •••• 4242');
-  const [processingPayment, setProcessingPayment] = useState(false);
-  const [paymentSuccess, setPaymentSuccess] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -111,42 +91,13 @@ export const PricingModal: React.FC<PricingModalProps> = ({
   if (!isOpen) return null;
 
   const handleChoosePlan = (plan: PlanInfo) => {
+    if (plan.id === 'FREE') {
+      onSelectPlan('FREE');
+      onClose();
+      return;
+    }
     setSelectedPlan(plan);
     setCheckoutStep('stripe');
-  };
-
-  const handleSimulatePayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setProcessingPayment(true);
-
-    try {
-      const checkout = await fetch('/api/checkout/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          plan: selectedPlan?.id,
-          email,
-          customerId: `cus_${Date.now()}`,
-        }),
-      });
-      if (!checkout.ok) {
-        throw new Error('Não foi possível iniciar o checkout.');
-      }
-
-      setPaymentSuccess(true);
-      setTimeout(() => {
-        if (selectedPlan) {
-          onSelectPlan(selectedPlan.id);
-        }
-        onClose();
-        setCheckoutStep('select');
-        setPaymentSuccess(false);
-      }, 1500);
-    } catch {
-      alert('Erro na confirmação do plano');
-    } finally {
-      setProcessingPayment(false);
-    }
   };
 
   return (
@@ -230,22 +181,21 @@ export const PricingModal: React.FC<PricingModalProps> = ({
                         : 'bg-slate-100 hover:bg-slate-200/80 text-slate-800'
                     }`}
                   >
-                    {plan.priceValue === 0 ? 'Plano Gratuito' : 'Contratar Plano'}
+                    {plan.priceValue === 0 ? 'Plano Gratuito' : 'Ver proposta'}
                   </button>
                 </div>
               ))}
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600">
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex flex-wrap items-center justify-between gap-3 text-xs text-amber-950">
               <span className="flex items-center gap-2 font-medium">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                Sem fidelidade: cancele ou altere seu plano quando desejar no painel corporativo.
+                <ShieldCheck className="w-4 h-4 text-amber-700" />
+                Somente o plano gratuito está habilitado. Planos pagos e seus recursos ainda não estão disponíveis.
               </span>
-              <span className="font-bold text-slate-800">Faturamento mensal com NF-e automática</span>
+              <span className="font-bold">Limites e valores pagos são apenas ilustrativos.</span>
             </div>
           </div>
         ) : (
-          /* Simulated Stripe Checkout Step */
           <div className="p-6 sm:p-8 max-w-lg mx-auto space-y-5">
             <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
               <div>
@@ -264,87 +214,19 @@ export const PricingModal: React.FC<PricingModalProps> = ({
               </button>
             </div>
 
-            {paymentSuccess ? (
-              <div className="p-6 text-center bg-emerald-50 rounded-3xl border border-emerald-200 space-y-2.5">
-                <div className="w-12 h-12 rounded-full bg-emerald-600 text-white flex items-center justify-center mx-auto shadow-sm">
-                  <Check className="w-6 h-6" />
-                </div>
-                <h4 className="text-base font-extrabold text-emerald-900">Plano Ativado com Sucesso!</h4>
-                <p className="text-xs text-emerald-800 leading-relaxed">
-                  Seus novos limites de requisição ({selectedPlan?.consultasMes}) já estão sincronizados com sua conta.
-                </p>
-              </div>
-            ) : (
-              <form onSubmit={handleSimulatePayment} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5" htmlFor="input-billing-email">
-                    E-mail Corporativo para Envio de Nota Fiscal
-                  </label>
-                  <input
-                    id="input-billing-email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-100/70 hover:bg-slate-100 focus:bg-white border border-slate-200 focus:border-indigo-600 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 outline-none transition-all"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5" htmlFor="input-card-num">
-                    Número do Cartão Corporativo (Simulação Stripe)
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="input-card-num"
-                      type="text"
-                      value={cardNumber}
-                      onChange={(e) => setCardNumber(e.target.value)}
-                      className="w-full pl-9 pr-3.5 py-2.5 bg-slate-100/70 hover:bg-slate-100 focus:bg-white border border-slate-200 focus:border-indigo-600 rounded-xl text-xs sm:text-sm font-mono font-bold text-slate-900 outline-none transition-all"
-                    />
-                    <CreditCard className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5" htmlFor="input-exp">
-                      Validade
-                    </label>
-                    <input
-                      id="input-exp"
-                      type="text"
-                      defaultValue="12/28"
-                      className="w-full px-3.5 py-2.5 bg-slate-100/70 hover:bg-slate-100 focus:bg-white border border-slate-200 focus:border-indigo-600 rounded-xl text-xs sm:text-sm font-mono font-semibold text-slate-900 outline-none transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5" htmlFor="input-cvc">
-                      CVC
-                    </label>
-                    <input
-                      id="input-cvc"
-                      type="text"
-                      defaultValue="888"
-                      className="w-full px-3.5 py-2.5 bg-slate-100/70 hover:bg-slate-100 focus:bg-white border border-slate-200 focus:border-indigo-600 rounded-xl text-xs sm:text-sm font-mono font-semibold text-slate-900 outline-none transition-all"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={processingPayment}
-                  className="w-full py-3 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-xs sm:text-sm font-bold rounded-full shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
-                >
-                  <CreditCard className="w-4 h-4" />
-                  <span>
-                    {processingPayment
-                      ? 'Processando ativação...'
-                      : `Confirmar Ativação (${selectedPlan?.price}/mês)`}
-                  </span>
-                </button>
-              </form>
-            )}
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-950">
+              <h4 className="font-extrabold">Este plano ainda não pode ser contratado</h4>
+              <p className="mt-2 text-sm leading-relaxed">
+                A integração de pagamentos não está configurada. Nenhuma cobrança ou alteração de limites será realizada. Não informe dados de cartão.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCheckoutStep('select')}
+              className="w-full rounded-full bg-slate-900 px-5 py-3 text-sm font-bold text-white"
+            >
+              Voltar aos planos
+            </button>
           </div>
         )}
       </div>

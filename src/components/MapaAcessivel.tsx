@@ -140,7 +140,7 @@ export const MapaAcessivel: React.FC<MapaAcessivelProps> = ({
       const isHighQuality = loc.nota_facilidade >= 4;
       const markerHtml = `
         <div style="
-          background: ${isHighQuality ? '#10b981' : '#667eea'};
+          background: ${loc.is_demo ? '#e3a008' : isHighQuality ? '#10b981' : '#667eea'};
           color: white;
           width: 36px;
           height: 36px;
@@ -173,29 +173,58 @@ export const MapaAcessivel: React.FC<MapaAcessivelProps> = ({
         icon: customIcon,
       });
 
-      const popupContent = `
-        <div style="font-family: system-ui, -apple-system, sans-serif; font-size: 12px; min-width: 220px; padding: 4px;">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
-            <h4 style="margin: 0; font-weight: 800; color: #0f172a; font-size: 14px;">${loc.local_nome}</h4>
-            <span style="background: #ecfdf5; color: #065f46; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 9999px; border: 1px solid #a7f3d0;">
-              ${loc.uf}
-            </span>
-          </div>
-          <p style="margin: 0 0 6px 0; color: #64748b; font-size: 11px;">CEP: ${loc.cep} • ${loc.cidade}-${loc.uf}</p>
-          <div style="margin-bottom: 6px; font-weight: 700; color: #059669; font-size: 12px;">
-            ★ ${loc.nota_facilidade}.0 • ${loc.upvotes} confirmações comunitárias
-          </div>
-          <div style="font-size: 11px; color: #334155; margin-bottom: 6px; display: flex; flex-wrap: wrap; gap: 3px;">
-            ${loc.rampa_acesso ? '<span style="background:#f0fdf4; border:1px solid #bbf7d0; padding:1px 5px; border-radius:4px;">♿ Rampa</span>' : ''}
-            ${loc.elevador ? '<span style="background:#f0fdf4; border:1px solid #bbf7d0; padding:1px 5px; border-radius:4px;">🛗 Elevador</span>' : ''}
-            ${loc.banheiro_adaptado ? '<span style="background:#f0fdf4; border:1px solid #bbf7d0; padding:1px 5px; border-radius:4px;">🚻 Banheiro PCD</span>' : ''}
-            ${loc.piso_tatil ? '<span style="background:#eef2ff; border:1px solid #c7d2fe; padding:1px 5px; border-radius:4px;">🦯 Tátil</span>' : ''}
-            ${loc.interprete_libras ? '<span style="background:#eef2ff; border:1px solid #c7d2fe; padding:1px 5px; border-radius:4px;">🧏 Libras</span>' : ''}
-            ${loc.espaco_calmo ? '<span style="background:#eef2ff; border:1px solid #c7d2fe; padding:1px 5px; border-radius:4px;">🧠 TEA</span>' : ''}
-          </div>
-          <p style="font-size: 11px; font-style: italic; color: #475569; margin: 0 0 8px 0; line-height: 1.4;">"${loc.comentario}"</p>
-        </div>
-      `;
+      const popupContent = document.createElement('div');
+      popupContent.style.cssText = 'font-family: system-ui, -apple-system, sans-serif; font-size: 12px; min-width: 220px; padding: 4px;';
+
+      const heading = document.createElement('div');
+      heading.style.cssText = 'display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;';
+      const title = document.createElement('h4');
+      title.style.cssText = 'margin: 0; font-weight: 800; color: #0f172a; font-size: 14px;';
+      title.textContent = loc.local_nome;
+      const state = document.createElement('span');
+      state.style.cssText = 'background: #fffbeb; color: #92400e; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 9999px; border: 1px solid #fcd34d;';
+      state.textContent = loc.is_demo ? 'EXEMPLO' : loc.uf;
+      heading.append(title, state);
+
+      const address = document.createElement('p');
+      address.style.cssText = 'margin: 0 0 6px; color: #64748b; font-size: 11px;';
+      address.textContent = `CEP: ${loc.cep} • ${loc.cidade}-${loc.uf}`;
+
+      const rating = document.createElement('div');
+      rating.style.cssText = 'margin-bottom: 6px; font-weight: 700; color: #059669; font-size: 12px;';
+      rating.textContent = `★ ${loc.nota_facilidade}.0 • ${loc.upvotes} confirmações comunitárias`;
+
+      let disclaimer: HTMLParagraphElement | null = null;
+      if (loc.is_demo) {
+        disclaimer = document.createElement('p');
+        disclaimer.style.cssText = 'margin: 0 0 6px; color: #92400e; font-size: 11px; font-weight: 700;';
+        disclaimer.textContent = 'Dado demonstrativo, não verificado.';
+      }
+
+      const features = document.createElement('div');
+      features.style.cssText = 'font-size: 11px; color: #334155; margin-bottom: 6px; display: flex; flex-wrap: wrap; gap: 3px;';
+      const featureLabels: [boolean | undefined, string][] = [
+        [loc.rampa_acesso, '♿ Rampa'],
+        [loc.elevador, '🛗 Elevador'],
+        [loc.banheiro_adaptado, '🚻 Banheiro PCD'],
+        [loc.piso_tatil, '🦯 Tátil'],
+        [loc.interprete_libras, '🧏 Libras'],
+        [loc.espaco_calmo, '🧠 TEA'],
+      ];
+      for (const [enabled, label] of featureLabels) {
+        if (!enabled) continue;
+        const badge = document.createElement('span');
+        badge.style.cssText = 'background: #f0fdf4; border: 1px solid #bbf7d0; padding: 1px 5px; border-radius: 4px;';
+        badge.textContent = label;
+        features.append(badge);
+      }
+
+      const comment = document.createElement('p');
+      comment.style.cssText = 'font-size: 11px; font-style: italic; color: #475569; margin: 0 0 8px; line-height: 1.4;';
+      comment.textContent = `“${loc.comentario}”`;
+      popupContent.append(heading);
+      if (disclaimer) popupContent.append(disclaimer);
+      popupContent.append(address, rating, features, comment);
 
       marker.bindPopup(popupContent);
       marker.on('click', () => {
@@ -456,6 +485,11 @@ export const MapaAcessivel: React.FC<MapaAcessivelProps> = ({
                         <span className="text-[11px] text-slate-500">
                           {item.cidade} • {item.bairro}
                         </span>
+                        {item.is_demo && (
+                          <span className="block text-[10px] font-semibold text-amber-800 mt-1">
+                            Exemplo demonstrativo, não verificado
+                          </span>
+                        )}
                       </div>
                       <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-full font-mono">
                         ★ {item.nota_facilidade}.0
@@ -527,4 +561,3 @@ export const MapaAcessivel: React.FC<MapaAcessivelProps> = ({
     </div>
   );
 };
-

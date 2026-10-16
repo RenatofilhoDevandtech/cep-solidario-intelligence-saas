@@ -116,9 +116,10 @@ export const CepSearch: React.FC<CepSearchProps> = ({
 
   const handleShare = async () => {
     if (!currentCepData) return;
+    const hasDemoEvaluations = currentCepData.avaliacoes.some((item) => item.is_demo);
     const accessibilitySummary = currentCepData.acessibilidadeStats?.total
-      ? `Acessibilidade PCD: ${currentCepData.acessibilidadeStats.mediaNota}/5.0, com ${currentCepData.acessibilidadeStats.total} avaliação(ões) comunitária(s).`
-      : 'Ainda não há avaliações comunitárias de acessibilidade para este endereço.';
+      ? `${hasDemoEvaluations ? 'Dados de demonstração, não verificados' : 'Relatos comunitários não auditados'}: ${currentCepData.acessibilidadeStats.mediaNota}/5.0, ${currentCepData.acessibilidadeStats.total} registro(s).`
+      : 'Sem relatos comunitários de acessibilidade para este endereço; isso não significa ausência de acessibilidade.';
     const shareText = `CEP ${currentCepData.cep}: ${currentCepData.logradouro}, ${currentCepData.cidade}/${currentCepData.uf}. ${accessibilitySummary}`;
     if (navigator.share) {
       try {
@@ -140,6 +141,7 @@ export const CepSearch: React.FC<CepSearchProps> = ({
   const digitsCount = inputCep.replace(/\D/g, '').length;
   const accessibilityStats = currentCepData?.acessibilidadeStats;
   const hasAccessibilityData = Boolean(accessibilityStats?.total);
+  const hasDemoEvaluations = Boolean(currentCepData?.avaliacoes.some((item) => item.is_demo));
   const formatAccessibilityPercentage = (value?: number) =>
     hasAccessibilityData ? `${value || 0}%` : 'Sem dados';
 
@@ -159,7 +161,7 @@ export const CepSearch: React.FC<CepSearchProps> = ({
               Encontre um endereço. Planeje melhor o caminho.
             </h1>
             <p className="max-w-xl text-slate-600 text-xs sm:text-sm mt-2 leading-relaxed">
-              Consulte o CEP, confira os dados do endereço e veja o que a comunidade já confirmou sobre acessibilidade.
+              Consulte o CEP, confira os dados do endereço e veja se existem relatos de acessibilidade.
             </p>
           </div>
 
@@ -544,12 +546,14 @@ export const CepSearch: React.FC<CepSearchProps> = ({
                     <h3 className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
                       Acessibilidade PCD
                       {hasAccessibilityData ? (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" aria-label="Com avaliações comunitárias" />
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-600" aria-label="Relatos não auditados" />
                       ) : (
                         <CircleHelp className="w-3.5 h-3.5 text-slate-400" aria-label="Sem avaliações comunitárias" />
                       )}
                     </h3>
-                    <p className="text-[11px] text-slate-500">Confirmações da comunidade</p>
+                    <p className="text-[11px] text-slate-500">
+                      {hasDemoEvaluations ? 'Exemplos demonstrativos, não verificados' : 'Relatos não auditados; não são certificação'}
+                    </p>
                   </div>
                 </div>
                 <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">
@@ -590,11 +594,15 @@ export const CepSearch: React.FC<CepSearchProps> = ({
             </div>
 
             <div className="pt-4 border-t border-slate-100">
-              <div className={`${hasAccessibilityData ? 'bg-emerald-50/80 border-emerald-200/80' : 'bg-slate-50 border-slate-200'} p-4 rounded-2xl border flex items-center justify-between`}>
+              <div className={`${hasAccessibilityData ? 'bg-amber-50/80 border-amber-200/80' : 'bg-slate-50 border-slate-200'} p-4 rounded-2xl border flex items-center justify-between`}>
                 <div>
-                  <span className="text-xs font-bold text-slate-900 block">Nota Comunitária</span>
+                  <span className="text-xs font-bold text-slate-900 block">Resumo de acessibilidade</span>
                   <span className="text-[11px] text-slate-600">
-                    {hasAccessibilityData ? 'Avaliado por voluntários locais' : 'Ainda não há avaliações neste endereço'}
+                    {hasDemoEvaluations
+                      ? 'Exemplos de demonstração; não verificados'
+                      : hasAccessibilityData
+                      ? 'Relatos comunitários; não auditados'
+                      : 'Sem dados disponíveis; isso não significa ausência de acessibilidade'}
                   </span>
                 </div>
                 <div className="text-right">
@@ -611,5 +619,3 @@ export const CepSearch: React.FC<CepSearchProps> = ({
     </div>
   );
 };
-
-

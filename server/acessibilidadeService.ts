@@ -26,10 +26,11 @@ export interface AvaliacaoRecord {
   cidade: string;
   uf: string;
   bairro: string;
+  is_demo?: boolean;
 }
 
 // Initial realistic database seed
-const avaliacoesDb: AvaliacaoRecord[] = [
+const seedAvaliacoesDb: AvaliacaoRecord[] = [
   {
     id: 'av-1',
     cep: '01310-100',
@@ -368,6 +369,10 @@ const avaliacoesDb: AvaliacaoRecord[] = [
   }
 ];
 
+const avaliacoesDb: AvaliacaoRecord[] = process.env.NODE_ENV === 'production'
+  ? []
+  : seedAvaliacoesDb.map((avaliacao) => ({ ...avaliacao, is_demo: true }));
+
 // Haversine formula to compute distance in km
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371; // Radius of earth in km
@@ -614,8 +619,8 @@ export function exportAvaliacoesCsv(): string {
   const rows = avaliacoesDb.map((item) => [
     item.id,
     item.cep,
-    `"${(item.local_nome || '').replace(/"/g, '""')}"`,
-    `"${(item.usuario_nome || '').replace(/"/g, '""')}"`,
+    item.local_nome,
+    item.usuario_nome,
     item.nota_facilidade,
     item.rampa_acesso ? 'SIM' : 'NAO',
     item.elevador ? 'SIM' : 'NAO',
@@ -627,8 +632,14 @@ export function exportAvaliacoesCsv(): string {
     item.cidade,
     item.uf,
     item.created_at,
-    `"${(item.comentario || '').replace(/"/g, '""')}"`,
+    item.comentario,
   ]);
 
-  return [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+  return [headers, ...rows].map((row) => row.map(toCsvCell).join(',')).join('\n');
+}
+
+export function toCsvCell(value: unknown): string {
+  const text = String(value ?? '');
+  const safeText = /^[\u0000-\u0020\uFEFF]*[=+\-@]/.test(text) ? `'${text}` : text;
+  return `"${safeText.replace(/"/g, '""')}"`;
 }

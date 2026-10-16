@@ -1,6 +1,6 @@
 -- ==========================================================
 -- PROJETO: CEP SOLIDÁRIO & INTELLIGENCE SAAS
--- Scripts de Criação de Tabelas (DDL) e Seeds Iniciais (DML)
+-- Criação de tabelas e dados de demonstração de CEP/acessibilidade.
 -- Compatível com MySQL 8.0+
 -- ==========================================================
 
@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS pessoas (
   uf CHAR(2) NOT NULL,
   estado VARCHAR(100) NOT NULL,
   rua VARCHAR(255) NOT NULL,
-  termo_lgpd BOOLEAN DEFAULT TRUE,
+  termo_lgpd BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_pessoas_cpf (cpf),
   INDEX idx_pessoas_cep (cep)
@@ -148,7 +148,7 @@ CREATE TABLE IF NOT EXISTS cep_analytics (
 ) ENGINE=InnoDB;
 
 -- ==========================================================
--- SEEDS INICIAIS (DADOS DE EXEMPLO REAIS)
+-- CEPs de referência para demonstração. Não são relatos de acessibilidade verificados.
 -- ==========================================================
 
 INSERT INTO ceps (cep, logradouro, complemento, bairro, cidade, uf, ibge, ddd, lat, lon)
@@ -161,40 +161,4 @@ VALUES
   ('40026-280', 'Largo do Pelourinho', '', 'Pelourinho', 'Salvador', 'BA', '2927408', '71', -12.97180000, -38.50970000),
   ('70040-010', 'Esplanada dos Ministérios', 'Bloco A', 'Zona Cívico-Administrativa', 'Brasília', 'DF', '5300108', '61', -15.79980000, -47.86450000)
 ON DUPLICATE KEY UPDATE logradouro=VALUES(logradouro);
-
-INSERT INTO avaliacoes (id, cep, local_nome, usuario_nome, rampa_acesso, elevador, banheiro_adaptado, vaga_pcd, piso_tatil, balcao_baixo, interprete_libras, sinalizacao_sonora, espaco_calmo, portas_largas, comentario, nota_facilidade, upvotes)
-VALUES 
-  ('av-1', '01310-100', 'MASP - Museu de Arte de São Paulo', 'Mariana Lima (Cadeirante)', TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, 'Acesso excelente por elevadores panorâmicos, banheiros totalmente acessíveis no subsolo e vão livre plano.', 5, 42),
-  ('av-2', '01310-930', 'Shopping Center 3 & Estação Consolação', 'Carlos Eduardo (Guia Cão-Guia)', TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, TRUE, TRUE, TRUE, 'Piso tátil bem demarcado conectando a calçada da Paulista ao saguão. Elevadores com aviso sonoro e braille nos botões.', 4, 28),
-  ('av-3', '01001-000', 'Poupatempo Sé / Estação Sé', 'Ana Beatriz Souza', TRUE, TRUE, TRUE, FALSE, TRUE, TRUE, TRUE, TRUE, FALSE, TRUE, 'Atendimento prioritário exemplar. Balcão rebaixado para cadeirantes e intérprete de Libras disponível.', 5, 35),
-  ('av-4', '22041-001', 'Clínica & Centro Comercial Copacabana', 'Roberto Silveira', TRUE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, 'Rampa de acesso suave na portaria, porém elevador estava temporariamente em manutenção no dia.', 3, 14),
-  ('av-5', '30130-100', 'Centro Cultural Banco do Brasil BH (Praça da Liberdade)', 'Fernanda Martins', TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, 'Espaço 100% adaptado com rampas históricas integradas, plataformas de elevação e audioguias para pessoas cegas.', 5, 56)
-ON DUPLICATE KEY UPDATE local_nome=VALUES(local_nome);
-
-INSERT INTO fotos (avaliacao_id, url)
-VALUES
-  ('av-1', 'https://images.unsplash.com/photo-1577717903315-1691ae25ab3f?w=600&auto=format&fit=crop&q=80'),
-  ('av-5', 'https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=600&auto=format&fit=crop&q=80');
-
-INSERT INTO users (id, email, empresa, stripe_customer_id)
-VALUES
-  ('usr-demo-1', 'logistica@ecommercebrasil.com.br', 'E-commerce Brasil Log', 'cus_demo_98231'),
-  ('usr-demo-2', 'dev@ongacessibilidade.org.br', 'Instituto Inclusão Urbana', 'cus_demo_free');
-
-INSERT INTO subscriptions (id, user_id, plan, status)
-VALUES
-  ('sub-1', 'usr-demo-1', 'BUSINESS', 'active'),
-  ('sub-2', 'usr-demo-2', 'FREE', 'active');
-
-INSERT INTO api_keys (id, user_id, key_prefix, key_hash, name, plan, rate_limit, requests_today, requests_limit_today)
-VALUES
-  ('key-dev-demo', 'usr-demo-1', 'cs_live_9b4e', 'hash_live_sample', 'Checkout E-commerce Produção', 'BUSINESS', 300, 2841, 10000),
-  ('key-test-env', 'usr-demo-2', 'cs_test_881f', 'hash_test_sample', 'Chave Teste / Sandbox', 'FREE', 60, 42, 100);
-
--- SEEDS: PESSOAS E ENDEREÇOS (REQUISITO DA AVALIAÇÃO ACADÊMICA)
-INSERT INTO pessoas (nome, cpf, cep, numero, complemento, logradouro, bairro, localidade, uf, estado, rua, termo_lgpd)
-VALUES
-  ('Ana Clara Oliveira', '123.456.789-01', '01310-100', '1578', 'Apto 42', 'Avenida Paulista', 'Bela Vista', 'São Paulo', 'SP', 'São Paulo', 'Avenida Paulista', TRUE),
-  ('Carlos Eduardo Mendes', '234.567.890-12', '22041-001', '450', 'Bloco B', 'Avenida Nossa Senhora de Copacabana', 'Copacabana', 'Rio de Janeiro', 'RJ', 'Rio de Janeiro', 'Avenida Nossa Senhora de Copacabana', TRUE),
-  ('Mariana Santos Silva', '345.678.901-23', '30130-100', '120', 'Sala 3', 'Praça da Liberdade', 'Savassi', 'Belo Horizonte', 'MG', 'Minas Gerais', 'Praça da Liberdade', TRUE);
 

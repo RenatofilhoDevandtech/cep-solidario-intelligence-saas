@@ -9,7 +9,6 @@ import {
   TrendingUp,
   Clock,
   Shield,
-  Zap,
   RefreshCw,
   Sparkles,
   Building2,
@@ -30,21 +29,24 @@ import {
   listarChavesApi,
   criarChaveApi,
   revogarChaveApi,
-  loginEmpresa,
 } from '../services/api.js';
+
+function csvCell(value: unknown): string {
+  const text = String(value ?? '');
+  const safeText = /^[\u0000-\u0020\uFEFF]*[=+\-@]/.test(text) ? `'${text}` : text;
+  return `"${safeText.replace(/"/g, '""')}"`;
+}
 
 interface B2bDashboardProps {
   openPricing: () => void;
   loggedCompany: CompanyUser | null;
   onOpenAuth: () => void;
-  onDemoLogin?: (company: CompanyUser) => void;
 }
 
 export const B2bDashboard: React.FC<B2bDashboardProps> = ({
   openPricing,
   loggedCompany,
   onOpenAuth,
-  onDemoLogin,
 }) => {
   const [keys, setKeys] = useState<ApiKeyItem[]>([]);
   const [stats, setStats] = useState<{
@@ -56,13 +58,12 @@ export const B2bDashboard: React.FC<B2bDashboardProps> = ({
     recentLogs: ApiRequestLog[];
   } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [demoLoading, setDemoLoading] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // New Key creation form
   const [newKeyName, setNewKeyName] = useState('');
-  const [newKeyPlan, setNewKeyPlan] = useState<'FREE' | 'STARTUP' | 'BUSINESS' | 'ENTERPRISE'>('BUSINESS');
   const [showKeyModal, setShowKeyModal] = useState(false);
+  const [newlyCreatedKey, setNewlyCreatedKey] = useState<string | null>(null);
 
   // Key to revoke confirmation modal (Nielsen #5 Error prevention & #3 User freedom)
   const [keyToRevoke, setKeyToRevoke] = useState<ApiKeyItem | null>(null);
@@ -108,12 +109,14 @@ export const B2bDashboard: React.FC<B2bDashboardProps> = ({
   const handleCreateKey = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await criarChaveApi(newKeyName || 'Chave de Produção', newKeyPlan);
+      const created = await criarChaveApi(newKeyName || 'Chave de API');
+      setNewlyCreatedKey(created.key);
+      setSelectedKeyForTest(created.key);
       setNewKeyName('');
       setShowKeyModal(false);
       await loadData();
     } catch (err) {
-      alert('Erro ao criar chave');
+      alert(err instanceof Error ? err.message : 'Erro ao criar chave');
     }
   };
 
@@ -134,21 +137,6 @@ export const B2bDashboard: React.FC<B2bDashboardProps> = ({
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  const handleQuickDemoLogin = async () => {
-    try {
-      setDemoLoading(true);
-      const company = await loginEmpresa('contato@logisticaexpress.com.br', '123456');
-      if (onDemoLogin) {
-        onDemoLogin(company);
-      }
-    } catch (err) {
-      console.error('Erro ao conectar com demo:', err);
-      onOpenAuth();
-    } finally {
-      setDemoLoading(false);
-    }
-  };
-
   const handleRunApiTest = async () => {
     const cleanCep = testCep.replace(/\D/g, '');
     if (cleanCep.length !== 8) {
@@ -160,12 +148,14 @@ export const B2bDashboard: React.FC<B2bDashboardProps> = ({
     setTestResult(null);
     const startTime = performance.now();
     try {
-      const activeKey = selectedKeyForTest || (keys.length > 0 ? keys[0].key : 'cs_live_9b4e8721fa09cd3491e');
+      if (!selectedKeyForTest.trim()) {
+        throw new Error('Cole a chave secreta válida. Ela só é exibida uma vez, quando criada.');
+      }
       const response = await fetch('/api/v1/validate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': activeKey,
+          'x-api-key': selectedKeyForTest.trim(),
         },
         body: JSON.stringify({ cep: cleanCep }),
       });
@@ -209,7 +199,7 @@ export const B2bDashboard: React.FC<B2bDashboardProps> = ({
       l.responseTimeMs,
       l.source,
     ]);
-    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const csvContent = [headers, ...rows].map((row) => row.map(csvCell).join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -269,14 +259,6 @@ export const B2bDashboard: React.FC<B2bDashboardProps> = ({
           {/* Gate Screen Action Buttons */}
           <div className="pt-5 border-t border-slate-100 flex flex-wrap items-center justify-center gap-3">
             <button
-              onClick={handleQuickDemoLogin}
-              disabled={demoLoading}
-              className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs sm:text-sm font-bold rounded-full shadow-sm transition-all flex items-center gap-2 cursor-pointer"
-            >
-              <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
-              <span>{demoLoading ? 'Conectando...' : 'Acessar com Conta Demo (1 Toque)'}</span>
-            </button>
-            <button
               onClick={onOpenAuth}
               className="px-5 py-3 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-xs sm:text-sm font-bold rounded-full shadow-sm transition-all flex items-center gap-2 cursor-pointer"
             >
@@ -291,9 +273,6 @@ export const B2bDashboard: React.FC<B2bDashboardProps> = ({
             </button>
           </div>
 
-          <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/80 text-xs text-slate-600 max-w-md mx-auto">
-            <span>⚡ <strong>Demonstração Instantânea:</strong> A conta <strong>Logística Express Brasil</strong> possui o plano <em>Business</em> ativado, chaves geradas e métricas em tempo real prontas para testar.</span>
-          </div>
         </div>
       </div>
     );
@@ -347,6 +326,34 @@ export const B2bDashboard: React.FC<B2bDashboardProps> = ({
         </div>
       </div>
 
+      {newlyCreatedKey && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 sm:p-5 text-sm text-amber-950">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="font-bold">Copie agora sua nova chave secreta</p>
+              <p className="mt-1 text-xs">Por segurança, o segredo completo não será exibido novamente depois que você fechar esta mensagem.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setNewlyCreatedKey(null)}
+              className="text-xs font-semibold underline"
+            >
+              Fechar
+            </button>
+          </div>
+          <div className="mt-3 flex flex-col sm:flex-row gap-2">
+            <code className="min-w-0 flex-1 break-all rounded-xl bg-white px-3 py-2 font-mono text-xs">{newlyCreatedKey}</code>
+            <button
+              type="button"
+              onClick={() => copyToClipboard(newlyCreatedKey)}
+              className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white"
+            >
+              {copiedKey === newlyCreatedKey ? 'Copiado' : 'Copiar chave'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* KPI Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-[0_4px_24px_rgba(0,0,0,0.03)]">
@@ -356,10 +363,12 @@ export const B2bDashboard: React.FC<B2bDashboardProps> = ({
           </div>
           <div className="mt-2.5 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-slate-900 font-mono tracking-tight">
-              {stats?.totalRequestsToday.toLocaleString() || '2.883'}
+              {(stats?.totalRequestsToday ?? 0).toLocaleString()}
             </span>
           </div>
-          <p className="text-[11px] text-slate-500 mt-1 font-medium">Limite diário do plano: 10.000</p>
+          <p className="text-[11px] text-slate-500 mt-1 font-medium">
+            Limite diário por chave: {keys[0]?.requestsLimitToday ?? 100}
+          </p>
         </div>
 
         <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-[0_4px_24px_rgba(0,0,0,0.03)]">
@@ -369,11 +378,11 @@ export const B2bDashboard: React.FC<B2bDashboardProps> = ({
           </div>
           <div className="mt-2.5 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-slate-900 font-mono tracking-tight">
-              {stats?.avgResponseTime || 38} ms
+              {stats && stats.avgResponseTime > 0 ? `${stats.avgResponseTime} ms` : 'Sem dados'}
             </span>
-            <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
-              Estável
-            </span>
+            {stats && stats.avgResponseTime > 0 && (
+              <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">Dados registrados</span>
+            )}
           </div>
           <p className="text-[11px] text-slate-500 mt-1 font-medium">Triplo fallback e cache local</p>
         </div>
@@ -385,11 +394,11 @@ export const B2bDashboard: React.FC<B2bDashboardProps> = ({
           </div>
           <div className="mt-2.5 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-slate-900 font-mono tracking-tight">
-              {stats?.successRate || 99.8}%
+              {stats && stats.recentLogs.length > 0 ? `${stats.successRate}%` : 'Sem dados'}
             </span>
-            <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
-              99.9% Meta
-            </span>
+            {stats && stats.recentLogs.length > 0 && (
+              <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full">Com base nos registros disponíveis</span>
+            )}
           </div>
           <p className="text-[11px] text-slate-500 mt-1 font-medium">Zero indisponibilidade crítica</p>
         </div>
@@ -469,7 +478,6 @@ export const B2bDashboard: React.FC<B2bDashboardProps> = ({
           </button>
         </div>
 
-        {/* Apple Obsidian Developer Card - Luxury Credential Display */}
         {keys.length > 0 && (
           <div className="apple-obsidian-card rounded-4xl p-6 text-white relative shadow-xl overflow-hidden">
             <div className="flex items-center justify-between pb-4 border-b border-white/10">
@@ -499,43 +507,20 @@ export const B2bDashboard: React.FC<B2bDashboardProps> = ({
             </div>
 
             <div className="py-4">
-              <span className="text-[11px] text-slate-400 font-medium block mb-1">Chave de Produção Ativa</span>
+              <span className="text-[11px] text-slate-400 font-medium block mb-1">Identificador mascarado</span>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/5 border border-white/10 p-3.5 rounded-2xl">
                 <span className="font-mono text-xs sm:text-sm font-bold text-emerald-300 tracking-wider break-all">
                   {keys[0].key}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(keys[0].key)}
-                  className="px-3.5 py-1.5 bg-white text-slate-950 hover:bg-slate-100 active:scale-95 text-xs font-bold rounded-full transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer shadow-sm"
-                >
-                  {copiedKey === keys[0].key ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Copiado!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>Copiar Chave</span>
-                    </>
-                  )}
-                </button>
               </div>
             </div>
 
             <div className="pt-3 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-400 font-mono">
               <div className="flex items-center gap-2">
                 <Terminal className="w-3.5 h-3.5 text-indigo-400" />
-                <span className="text-[11px] truncate">curl -H "x-api-key: {keys[0].key.slice(0, 10)}..." /api/v1/validate?cep=01310-100</span>
+                <span className="text-[11px] truncate">curl -H "x-api-key: SUA_CHAVE" /api/v1/validate</span>
               </div>
-              <button
-                type="button"
-                onClick={() => copyToClipboard(`curl -H "x-api-key: ${keys[0].key}" "${window.location.origin}/api/v1/validate?cep=01310-100"`)}
-                className="text-[11px] text-indigo-300 hover:text-white underline cursor-pointer text-left sm:text-right"
-              >
-                Copiar cURL
-              </button>
+              <span className="text-[11px] text-slate-400">O segredo completo só aparece na criação.</span>
             </div>
           </div>
         )}
@@ -558,16 +543,8 @@ export const B2bDashboard: React.FC<B2bDashboardProps> = ({
                   <td className="py-3.5 px-2 font-bold text-slate-900">{k.name}</td>
                   <td className="py-3.5 px-2 font-mono text-slate-600">
                     <span className="bg-slate-100/80 px-2.5 py-1 rounded-full border border-slate-200/80 text-[11px]">
-                      {k.key.slice(0, 12)}••••••••••••
+                      {k.key}
                     </span>
-                    <button
-                      onClick={() => copyToClipboard(k.key)}
-                      className="ml-2 text-slate-400 hover:text-slate-900 active:scale-95 transition-all cursor-pointer inline-flex items-center"
-                      title="Copiar Chave Completa"
-                      aria-label="Copiar chave"
-                    >
-                      {copiedKey === k.key ? <Check className="w-3.5 h-3.5 text-emerald-600 inline" /> : <Copy className="w-3.5 h-3.5 inline" />}
-                    </button>
                   </td>
                   <td className="py-3.5 px-2">
                     <span className="font-bold px-2.5 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-800">
@@ -632,18 +609,14 @@ export const B2bDashboard: React.FC<B2bDashboardProps> = ({
             <label className="block text-xs font-bold text-slate-700 mb-1.5" htmlFor="select-test-key">
               Chave de API (Header x-api-key)
             </label>
-            <select
+            <input
               id="select-test-key"
-              value={selectedKeyForTest || (keys[0]?.key || '')}
+              type="password"
+              value={selectedKeyForTest}
               onChange={(e) => setSelectedKeyForTest(e.target.value)}
+              placeholder="Cole uma chave criada nesta sessão"
               className="w-full px-3.5 py-2.5 bg-slate-100/70 hover:bg-slate-100 focus:bg-white border border-slate-200 focus:border-indigo-600 rounded-xl text-xs sm:text-sm font-mono text-slate-800 outline-none transition-all"
-            >
-              {keys.map((k) => (
-                <option key={k.id} value={k.key}>
-                  {k.name} ({k.key.slice(0, 14)}...) - {k.plan}
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           <div className="sm:col-span-3">
@@ -842,22 +815,9 @@ export const B2bDashboard: React.FC<B2bDashboardProps> = ({
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5" htmlFor="select-new-key-plan">
-                  Plano Vinculado
-                </label>
-                <select
-                  id="select-new-key-plan"
-                  value={newKeyPlan}
-                  onChange={(e) => setNewKeyPlan(e.target.value as any)}
-                  className="w-full px-3.5 py-2.5 bg-slate-100/70 hover:bg-slate-100 focus:bg-white border border-slate-200 focus:border-indigo-600 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 outline-none transition-all cursor-pointer"
-                >
-                  <option value="FREE">Plano FREE (100 req/dia)</option>
-                  <option value="STARTUP">Plano STARTUP (10.000 req/mês)</option>
-                  <option value="BUSINESS">Plano BUSINESS (100.000 req/mês)</option>
-                  <option value="ENTERPRISE">Plano ENTERPRISE (1.000.000 req/mês)</option>
-                </select>
-              </div>
+              <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
+                Limites aplicados conforme o plano atual da empresa: <strong>{loggedCompany?.plan ?? 'FREE'}</strong>.
+              </p>
 
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                 <button

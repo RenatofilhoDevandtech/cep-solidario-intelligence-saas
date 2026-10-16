@@ -8,7 +8,7 @@ import {
   Calendar,
   User,
   HeartHandshake,
-  ShieldCheck,
+  AlertCircle,
   Plus,
   MapPin,
 } from 'lucide-react';
@@ -125,9 +125,9 @@ export const AvaliacoesLista: React.FC<AvaliacoesListaProps> = ({
                       {new Date(item.created_at).toLocaleDateString('pt-BR')}
                     </span>
                     <span>•</span>
-                    <span className="flex items-center gap-1 text-emerald-700 font-semibold text-[11px]">
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                      Verificado
+                    <span className="flex items-center gap-1 text-amber-800 font-semibold text-[11px]">
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-700" />
+                      {item.is_demo ? 'Exemplo não verificado' : 'Relato comunitário não auditado'}
                     </span>
                   </div>
                 </div>

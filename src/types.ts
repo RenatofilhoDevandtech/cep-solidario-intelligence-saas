@@ -49,6 +49,7 @@ export interface AcessibilidadeAvaliacao {
   cidade?: string;
   uf?: string;
   bairro?: string;
+  is_demo?: boolean;
 }
 
 export interface AcessibilidadeStats {
@@ -154,6 +155,22 @@ export interface PessoaRecord {
   created_at: string;
 }
 
+export interface PessoaCidadeResumo {
+  localidade: string;
+  uf: string;
+  total: number;
+}
+
+export interface PessoasResumo {
+  total: number;
+  cidades: PessoaCidadeResumo[];
+}
+
+export interface PessoaCreated {
+  id: number;
+  created_at: string;
+}
+
 export interface NewPessoaPayload {
   nome: string;
   cpf: string;
@@ -166,7 +183,7 @@ export interface NewPessoaPayload {
   uf: string;
   estado: string;
   rua: string;
-  termo_lgpd?: boolean;
+  termo_lgpd: boolean;
 }
 
 export interface DockerStatus {
@@ -188,4 +205,3 @@ export interface DockerStatus {
   network: string;
   timestamp: string;
 }
-

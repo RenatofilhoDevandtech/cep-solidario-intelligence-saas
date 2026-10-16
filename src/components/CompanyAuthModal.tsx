@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Building2, Lock, Mail, FileText, ArrowRight, CheckCircle2, AlertCircle, Zap } from 'lucide-react';
+import { X, Building2, Lock, Mail, FileText, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
 import { CompanyUser } from '../types.js';
 import { loginEmpresa, registrarEmpresa } from '../services/api.js';
 
@@ -18,8 +18,8 @@ export const CompanyAuthModal: React.FC<CompanyAuthModalProps> = ({
 }) => {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('contato@logisticaexpress.com.br');
-  const [password, setPassword] = useState('123456');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [cnpj, setCnpj] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -57,26 +57,6 @@ export const CompanyAuthModal: React.FC<CompanyAuthModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleLoginDemo = async () => {
-    try {
-      setLoading(true);
-      setErrorMsg(null);
-      const company = await loginEmpresa('contato@logisticaexpress.com.br', '123456');
-      notifySuccess(company);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Erro ao entrar com a conta demo.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleFillDemo = () => {
-    setEmail('contato@logisticaexpress.com.br');
-    setPassword('123456');
-    setMode('login');
-    setErrorMsg(null);
   };
 
   return (
@@ -225,9 +205,10 @@ export const CompanyAuthModal: React.FC<CompanyAuthModalProps> = ({
                 id="company-pwd"
                 type="password"
                 required
+                minLength={mode === 'register' ? 12 : undefined}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Mínimo 6 caracteres"
+                placeholder="Mínimo 12 caracteres"
                 className="w-full pl-9 pr-3.5 py-2.5 bg-slate-100/70 hover:bg-slate-100 focus:bg-white border border-slate-200 focus:border-indigo-600 rounded-xl text-xs font-medium text-slate-900 outline-none transition-all"
               />
               <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
@@ -249,42 +230,6 @@ export const CompanyAuthModal: React.FC<CompanyAuthModalProps> = ({
             )}
           </button>
 
-          {/* Quick Demo Instant Access Box */}
-          <div className="pt-3 border-t border-slate-100 space-y-2.5">
-            <div className="p-3.5 bg-slate-50/80 border border-slate-200/80 rounded-2xl space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
-                  Conta de Demonstração
-                </span>
-                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-full">
-                  Plano Business
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 leading-snug">
-                Empresa pré-configurada: <strong>Logística Express Brasil</strong> (<code className="font-mono text-slate-700">contato@logisticaexpress.com.br</code>).
-              </p>
-              <div className="flex items-center gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={handleLoginDemo}
-                  disabled={loading}
-                  className="flex-1 py-2.5 px-3 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold rounded-full transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
-                >
-                  <Zap className="w-3.5 h-3.5" />
-                  <span>1 Toque (Demo)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleFillDemo}
-                  className="py-2.5 px-3.5 bg-white hover:bg-slate-100 active:scale-95 text-slate-700 border border-slate-200 text-xs font-bold rounded-full transition-all cursor-pointer"
-                  title="Preencher campos do formulário"
-                >
-                  Preencher
-                </button>
-              </div>
-            </div>
-          </div>
         </form>
       </div>
     </div>

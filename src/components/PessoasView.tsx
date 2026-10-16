@@ -10,8 +10,6 @@ import {
   CheckCircle2,
   AlertCircle,
   RefreshCw,
-  Eye,
-  EyeOff,
   Server,
   Layers,
   Sparkles,
@@ -19,7 +17,7 @@ import {
   Check,
   Building,
 } from 'lucide-react';
-import { PessoaRecord, NewPessoaPayload, DockerStatus } from '../types.js';
+import { PessoaCidadeResumo, NewPessoaPayload, DockerStatus } from '../types.js';
 import { listarPessoas, cadastrarPessoa, consultarCep, buscarStatusDocker } from '../services/api.js';
 
 interface PessoasViewProps {
@@ -46,14 +44,13 @@ export const PessoasView: React.FC<PessoasViewProps> = ({ onNotify }) => {
   // Status & Logic
   const [loadingCep, setLoadingCep] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [termoLgpd, setTermoLgpd] = useState(true);
-  const [pessoas, setPessoas] = useState<PessoaRecord[]>([]);
+  const [termoLgpd, setTermoLgpd] = useState(false);
+  const [pessoas, setPessoas] = useState<PessoaCidadeResumo[]>([]);
+  const [totalPessoas, setTotalPessoas] = useState(0);
   const [loadingList, setLoadingList] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // LGPD Masking Toggle
-  const [showFullCpf, setShowFullCpf] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Docker Telemetry
@@ -85,19 +82,13 @@ export const PessoasView: React.FC<PessoasViewProps> = ({ onNotify }) => {
     return `${numbers.slice(0, 5)}-${numbers.slice(5, 8)}`;
   };
 
-  // Mask CPF for LGPD: ***.456.789-**
-  const maskCpfLgpd = (rawCpf: string) => {
-    const clean = rawCpf.replace(/\D/g, '');
-    if (clean.length < 11) return '***.***.***-**';
-    return `***.${clean.slice(3, 6)}.${clean.slice(6, 9)}-**`;
-  };
-
   // Fetch registered people from backend
   const carregarPessoas = async () => {
     try {
       setLoadingList(true);
-      const lista = await listarPessoas();
-      setPessoas(lista);
+      const resumo = await listarPessoas();
+      setPessoas(resumo.cidades);
+      setTotalPessoas(resumo.total);
     } catch (err: any) {
       console.error('Erro ao carregar lista de pessoas:', err);
     } finally {
@@ -203,10 +194,10 @@ export const PessoasView: React.FC<PessoasViewProps> = ({ onNotify }) => {
         termo_lgpd: termoLgpd,
       };
 
-      const nova = await cadastrarPessoa(payload);
-      setSuccessMsg(`Pessoa "${nova.nome}" cadastrada com sucesso e persistida no MySQL!`);
+      await cadastrarPessoa(payload);
+      setSuccessMsg('Cadastro realizado com sucesso. A lista pública mostra somente dados agregados por município.');
       if (onNotify) {
-        onNotify(`Cadastro de "${nova.nome}" realizado com sucesso!`, 'success');
+        onNotify('Cadastro realizado com sucesso.', 'success');
       }
 
       // Reset Form
@@ -222,6 +213,7 @@ export const PessoasView: React.FC<PessoasViewProps> = ({ onNotify }) => {
       setEstado('');
       setRua('');
       setFonteCep(null);
+      setTermoLgpd(false);
 
       // Refresh registered list
       await carregarPessoas();
@@ -239,17 +231,10 @@ export const PessoasView: React.FC<PessoasViewProps> = ({ onNotify }) => {
   // Filter list
   const pessoasFiltradas = pessoas.filter((p) => {
     const q = searchTerm.toLowerCase();
-    return (
-      p.nome.toLowerCase().includes(q) ||
-      p.localidade.toLowerCase().includes(q) ||
-      p.bairro.toLowerCase().includes(q) ||
-      p.cep.includes(q) ||
-      p.cpf.includes(q)
-    );
+    return p.localidade.toLowerCase().includes(q) || p.uf.toLowerCase().includes(q);
   });
 
-  // Compute unique cities count
-  const cidadesUnicas = new Set(pessoas.map((p) => p.localidade).filter(Boolean)).size;
+  const cidadesUnicas = pessoas.length;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -296,7 +281,7 @@ export const PessoasView: React.FC<PessoasViewProps> = ({ onNotify }) => {
             <div className="text-xs space-y-2 text-slate-300">
               <div className="flex justify-between items-center">
                 <span>Pessoas Cadastradas:</span>
-                <span className="font-mono text-emerald-400 font-bold text-sm">{pessoas.length}</span>
+                <span className="font-mono text-emerald-400 font-bold text-sm">{totalPessoas}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span>Cidades Cobertas:</span>
@@ -563,12 +548,13 @@ export const PessoasView: React.FC<PessoasViewProps> = ({ onNotify }) => {
               <label className="flex items-start gap-3 cursor-pointer select-none">
                 <input
                   type="checkbox"
+                  required
                   checked={termoLgpd}
                   onChange={(e) => setTermoLgpd(e.target.checked)}
                   className="mt-1 w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
                 />
                 <span className="text-xs text-slate-700 leading-relaxed">
-                  <strong>Conformidade LGPD (Lei nº 13.709/2018):</strong> Autorizo o tratamento seguro dos meus dados pessoais (Nome, CPF e Endereço) para fins de registro cadastral, ciente de que o CPF é protegido por padrão para preservar minha privacidade.
+                  <strong>Consentimento para cadastro:</strong> Autorizo o tratamento dos dados pessoais (Nome, CPF e Endereço) para fins de registro. Entendo que esses dados ficam no cadastro e que a consulta pública exibe apenas totais agregados por município.
                 </span>
               </label>
             </div>
@@ -641,7 +627,7 @@ export const PessoasView: React.FC<PessoasViewProps> = ({ onNotify }) => {
                 <div>
                   <h4 className="text-xs font-bold text-slate-800">Privacidade & LGPD</h4>
                   <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-                    O CPF é armazenado com proteção de dados e exibido com máscara segura para preservar sua confidencialidade.
+                    Nome, CPF e endereço ficam restritos ao cadastro. A consulta pública exibe somente totais agregados por município; não use dados reais em ambientes de demonstração.
                   </p>
                 </div>
               </div>
@@ -658,12 +644,12 @@ export const PessoasView: React.FC<PessoasViewProps> = ({ onNotify }) => {
                 </h3>
               </div>
               <span className="text-[11px] text-slate-400">
-                Total: <strong className="text-white">{pessoas.length}</strong> pessoas
+                Total: <strong className="text-white">{totalPessoas}</strong> pessoas
               </span>
             </div>
 
             <p className="text-xs text-slate-300 leading-relaxed">
-              Todos os registros ficam salvos de forma segura e imediata, disponíveis na tabela de consulta logo abaixo.
+              A consulta pública mostra apenas totais agrupados por município, sem nomes, documentos ou endereços individuais.
             </p>
 
             <button
@@ -688,11 +674,11 @@ export const PessoasView: React.FC<PessoasViewProps> = ({ onNotify }) => {
                 Pessoas Cadastradas & Endereços
               </h2>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-indigo-100 text-indigo-800">
-                {pessoas.length}
+                {totalPessoas}
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              Lista de registros com endereços validados por CEP e proteção de privacidade.
+              Resumo agregado por município. Nenhum dado pessoal ou endereço individual é exibido nesta lista.
             </p>
           </div>
 
@@ -702,7 +688,7 @@ export const PessoasView: React.FC<PessoasViewProps> = ({ onNotify }) => {
             <div className="relative">
               <input
                 type="text"
-                placeholder="Filtrar por nome, cidade..."
+                placeholder="Filtrar por cidade ou UF..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-8 pr-3 py-1.5 rounded-xl border border-slate-300 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
@@ -710,28 +696,6 @@ export const PessoasView: React.FC<PessoasViewProps> = ({ onNotify }) => {
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
             </div>
 
-            {/* Toggle LGPD */}
-            <button
-              onClick={() => setShowFullCpf(!showFullCpf)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition-all cursor-pointer ${
-                showFullCpf
-                  ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
-                  : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
-              }`}
-              title={showFullCpf ? 'Ativar proteção de dados (LGPD)' : 'Exibir CPF Completo'}
-            >
-              {showFullCpf ? (
-                <>
-                  <EyeOff className="w-3.5 h-3.5 text-amber-700" />
-                  <span>Ocultar CPF (LGPD)</span>
-                </>
-              ) : (
-                <>
-                  <Eye className="w-3.5 h-3.5 text-slate-600" />
-                  <span>Exibir CPF Completo</span>
-                </>
-              )}
-            </button>
           </div>
         </div>
 
@@ -739,14 +703,14 @@ export const PessoasView: React.FC<PessoasViewProps> = ({ onNotify }) => {
         {loadingList ? (
           <div className="py-12 text-center text-slate-500 space-y-3">
             <RefreshCw className="w-8 h-8 mx-auto animate-spin text-indigo-600" />
-            <p className="text-sm">Carregando registros de pessoas...</p>
+            <p className="text-sm">Carregando resumo agregado...</p>
           </div>
         ) : pessoasFiltradas.length === 0 ? (
           <div className="py-12 text-center text-slate-500 space-y-2">
             <Users className="w-10 h-10 mx-auto text-slate-300" />
-            <p className="font-semibold text-slate-700">Nenhuma pessoa encontrada.</p>
+            <p className="font-semibold text-slate-700">Nenhum município encontrado.</p>
             <p className="text-xs text-slate-400">
-              {searchTerm ? 'Tente outros termos de busca.' : 'Cadastre a primeira pessoa no formulário acima.'}
+              {searchTerm ? 'Tente outro município ou UF.' : 'Ainda não há cadastros.'}
             </p>
           </div>
         ) : (
@@ -754,44 +718,17 @@ export const PessoasView: React.FC<PessoasViewProps> = ({ onNotify }) => {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider bg-slate-50/70">
-                  <th className="py-3 px-4 rounded-l-xl">Pessoa</th>
-                  <th className="py-3 px-4">CPF</th>
-                  <th className="py-3 px-4">Logradouro / Rua</th>
-                  <th className="py-3 px-4">Nº / Compl.</th>
-                  <th className="py-3 px-4">Bairro</th>
-                  <th className="py-3 px-4">Localidade - UF</th>
-                  <th className="py-3 px-4">CEP</th>
-                  <th className="py-3 px-4 rounded-r-xl">Status</th>
+                  <th className="py-3 px-4 rounded-l-xl">Município</th>
+                  <th className="py-3 px-4">UF</th>
+                  <th className="py-3 px-4 rounded-r-xl">Cadastros</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
                 {pessoasFiltradas.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-4 font-bold text-slate-900 whitespace-nowrap">
-                      {p.nome}
-                    </td>
-                    <td className="py-3 px-4 font-mono whitespace-nowrap">
-                      <span className={`px-2 py-0.5 rounded text-[11px] ${showFullCpf ? 'bg-amber-100 text-amber-900 font-bold' : 'bg-slate-100 text-slate-600'}`}>
-                        {showFullCpf ? p.cpf : maskCpfLgpd(p.cpf)}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">{p.logradouro || p.rua}</td>
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      {p.numero} {p.complemento ? `(${p.complemento})` : ''}
-                    </td>
-                    <td className="py-3 px-4">{p.bairro}</td>
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      {p.localidade} - <strong className="text-slate-900">{p.uf}</strong>
-                    </td>
-                    <td className="py-3 px-4 font-mono font-semibold whitespace-nowrap text-indigo-700">
-                      {p.cep}
-                    </td>
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                        Cadastrado
-                      </span>
-                    </td>
+                  <tr key={`${p.localidade}-${p.uf}`} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3 px-4 font-bold text-slate-900 whitespace-nowrap">{p.localidade}</td>
+                    <td className="py-3 px-4 font-semibold">{p.uf}</td>
+                    <td className="py-3 px-4 font-mono font-semibold text-indigo-700">{p.total}</td>
                   </tr>
                 ))}
               </tbody>

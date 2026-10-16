@@ -216,7 +216,6 @@ export default function App() {
             openPricing={() => setIsPricingOpen(true)}
             loggedCompany={loggedCompany}
             onOpenAuth={() => setIsAuthOpen(true)}
-            onDemoLogin={handleCompanyAuthSuccess}
           />
         )}
 

@@ -1,6 +1,6 @@
 import { fetchCepWithFallback, sanitizeCep } from './cepService.js';
 import { getAvaliacoesByCep } from './acessibilidadeService.js';
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
 
 export interface ApiKeyItem {
   id: string;
@@ -26,33 +26,7 @@ export interface ApiRequestLog {
   source: string;
 }
 
-// In-memory keys repository
-const apiKeys: ApiKeyItem[] = [
-  {
-    id: 'key-dev-demo',
-    key: 'cs_live_9b4e8721fa09cd3491e',
-    name: 'E-commerce Checkout Principal (Produção)',
-    plan: 'BUSINESS',
-    rateLimit: 300,
-    requestsToday: 2841,
-    requestsLimitToday: 10000,
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString(),
-    active: true,
-    companyId: 'comp-1',
-  },
-  {
-    id: 'key-test-env',
-    key: 'cs_test_881fa430bce77192aa1',
-    name: 'Ambiente de Homologação / Staging',
-    plan: 'FREE',
-    rateLimit: 60,
-    requestsToday: 42,
-    requestsLimitToday: 100,
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10).toISOString(),
-    active: true,
-    companyId: 'comp-2',
-  },
-];
+const apiKeys: ApiKeyItem[] = [];
 
 export interface CompanyUser {
   id: string;
@@ -65,6 +39,22 @@ export interface CompanyUser {
 
 const sessions = new Map<string, { companyId: string; expiresAt: number }>();
 const requestWindows = new Map<string, { startedAt: number; count: number }>();
+const requestUsageDays = new Map<string, string>();
+
+const PLAN_LIMITS: Record<CompanyUser['plan'], { rate: number; daily: number }> = {
+  FREE: { rate: 60, daily: 100 },
+  STARTUP: { rate: 120, daily: 1000 },
+  BUSINESS: { rate: 300, daily: 10000 },
+  ENTERPRISE: { rate: 1200, daily: 50000 },
+};
+
+function getPlanLimits(plan: CompanyUser['plan']) {
+  return PLAN_LIMITS[plan];
+}
+
+function maskApiKey(key: string): string {
+  return `${key.slice(0, 8)}••••••••${key.slice(-4)}`;
+}
 
 function hashPassword(password: string): string {
   const salt = randomBytes(16).toString('hex');
@@ -109,36 +99,27 @@ export function destroyCompanySession(token: string | undefined): void {
   if (token) sessions.delete(token);
 }
 
-// In-memory companies database with a pre-configured demo account
-const companies: (CompanyUser & { passwordHash: string })[] = [
-  {
-    id: 'comp-1',
-    name: 'Logística Express Brasil',
-    email: 'contato@logisticaexpress.com.br',
-    cnpj: '12.345.678/0001-90',
-    plan: 'BUSINESS',
-    passwordHash: hashPassword('123456'),
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 45).toISOString(),
-  },
-  {
-    id: 'comp-2',
-    name: 'Loja Virtual Exemplo',
-    email: 'dev@lojaexemplo.com.br',
-    cnpj: '98.765.432/0001-10',
-    plan: 'STARTUP',
-    passwordHash: hashPassword('123456'),
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 12).toISOString(),
-  },
-];
+const companies: (CompanyUser & { passwordHash: string })[] = [];
 
 export function registerCompany(name: string, email: string, password: string, cnpj?: string): CompanyUser {
+  if (typeof name !== 'string' || !name.trim()) throw new Error('Nome da empresa é obrigatório.');
+  if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    throw new Error('Informe um e-mail corporativo válido.');
+  }
+  if (typeof password !== 'string' || password.length < 12) {
+    throw new Error('A senha deve conter pelo menos 12 caracteres.');
+  }
+  if (cnpj !== undefined && (typeof cnpj !== 'string' || cnpj.length > 32)) {
+    throw new Error('CNPJ inválido.');
+  }
+
   const existing = companies.find((c) => c.email.toLowerCase() === email.toLowerCase().trim());
   if (existing) {
     throw new Error('Já existe uma empresa cadastrada com este e-mail corporativo.');
   }
 
   const newComp = {
-    id: `comp-${Date.now()}`,
+    id: `comp-${randomUUID()}`,
     name: name.trim() || 'Empresa Cadastrada',
     email: email.toLowerCase().trim(),
     cnpj: cnpj ? cnpj.trim() : undefined,
@@ -148,9 +129,6 @@ export function registerCompany(name: string, email: string, password: string, c
   };
 
   companies.push(newComp);
-
-  // Automatically provision their first FREE API Key
-  createApiKey('Chave Padrão (Ambiente Inicial)', 'FREE', newComp.id);
 
   return {
     id: newComp.id,
@@ -200,6 +178,15 @@ export function updateCompanyPlanById(companyId: string, plan: 'FREE' | 'STARTUP
   const comp = companies.find((c) => c.id === companyId);
   if (!comp) throw new Error('Empresa não encontrada.');
   comp.plan = plan;
+  const limits = getPlanLimits(plan);
+  for (const key of apiKeys) {
+    if (key.companyId === companyId && key.active) {
+      key.plan = plan;
+      key.rateLimit = limits.rate;
+      key.requestsLimitToday = limits.daily;
+      key.requestsToday = Math.min(key.requestsToday, limits.daily);
+    }
+  }
   return {
     id: comp.id,
     name: comp.name,
@@ -211,89 +198,61 @@ export function updateCompanyPlanById(companyId: string, plan: 'FREE' | 'STARTUP
 }
 
 // In-memory request logs for analytics
-const requestLogs: ApiRequestLog[] = [
-  {
-    id: 'log-1',
-    apiKeyId: 'key-dev-demo',
-    endpoint: '/api/v1/validate',
-    cep: '01310-100',
-    status: 200,
-    responseTimeMs: 38,
-    timestamp: new Date(Date.now() - 1000 * 30).toISOString(),
-    source: 'ViaCEP',
-  },
-  {
-    id: 'log-2',
-    apiKeyId: 'key-dev-demo',
-    endpoint: '/api/v1/validate',
-    cep: '22041-001',
-    status: 200,
-    responseTimeMs: 44,
-    timestamp: new Date(Date.now() - 1000 * 75).toISOString(),
-    source: 'Cache Local',
-  },
-  {
-    id: 'log-3',
-    apiKeyId: 'key-dev-demo',
-    endpoint: '/api/v1/validate',
-    cep: '70040-010',
-    status: 200,
-    responseTimeMs: 52,
-    timestamp: new Date(Date.now() - 1000 * 120).toISOString(),
-    source: 'BrasilAPI',
-  },
-  {
-    id: 'log-4',
-    apiKeyId: 'key-test-env',
-    endpoint: '/api/v1/validate',
-    cep: '90010-150',
-    status: 200,
-    responseTimeMs: 35,
-    timestamp: new Date(Date.now() - 1000 * 210).toISOString(),
-    source: 'Cache Local',
-  },
-];
+const requestLogs: ApiRequestLog[] = [];
 
-export function listApiKeys(companyId?: string): ApiKeyItem[] {
-  return [...apiKeys].filter((item) => !companyId || item.companyId === companyId);
+function resetDailyUsage(key: ApiKeyItem): void {
+  const today = new Date().toISOString().slice(0, 10);
+  if (requestUsageDays.get(key.id) !== today) {
+    key.requestsToday = 0;
+    requestUsageDays.set(key.id, today);
+  }
+}
+
+export function listApiKeys(companyId: string): ApiKeyItem[] {
+  return [...apiKeys]
+    .filter((item) => item.companyId === companyId)
+    .map((item) => {
+      resetDailyUsage(item);
+      return item;
+    })
+    .map((item) => ({ ...item, key: maskApiKey(item.key) }));
 }
 
 export function createApiKey(
   name: string,
-  plan: 'FREE' | 'STARTUP' | 'BUSINESS' | 'ENTERPRISE',
-  companyId?: string
+  companyId: string
 ): ApiKeyItem {
+  const company = companies.find((item) => item.id === companyId);
+  if (!company) throw new Error('Empresa não encontrada.');
+  const plan = company.plan;
   const prefix = plan === 'FREE' ? 'cs_test_' : 'cs_live_';
   const randomHex = randomBytes(20).toString('hex');
   const key = `${prefix}${randomHex}`;
-
-  const limits: Record<string, { rate: number; daily: number }> = {
-    FREE: { rate: 60, daily: 100 },
-    STARTUP: { rate: 120, daily: 1000 },
-    BUSINESS: { rate: 300, daily: 10000 },
-    ENTERPRISE: { rate: 1200, daily: 50000 },
-  };
+  const limits = getPlanLimits(plan);
 
   const newKey: ApiKeyItem = {
-    id: `key-${Date.now()}`,
+    id: `key-${randomUUID()}`,
     key,
     name: name.trim() || `API Key ${plan}`,
     plan,
-    rateLimit: limits[plan].rate,
+    rateLimit: limits.rate,
     requestsToday: 0,
-    requestsLimitToday: limits[plan].daily,
+    requestsLimitToday: limits.daily,
     created_at: new Date().toISOString(),
     active: true,
     companyId,
   };
 
   apiKeys.unshift(newKey);
+  resetDailyUsage(newKey);
   return newKey;
 }
 
-export function revokeApiKey(id: string, companyId?: string): boolean {
-  const idx = apiKeys.findIndex((k) => k.id === id && (!companyId || k.companyId === companyId));
+export function revokeApiKey(id: string, companyId: string): boolean {
+  const idx = apiKeys.findIndex((k) => k.id === id && k.companyId === companyId);
   if (idx !== -1) {
+    requestWindows.delete(apiKeys[idx].key);
+    requestUsageDays.delete(apiKeys[idx].id);
     apiKeys.splice(idx, 1);
     return true;
   }
@@ -317,17 +276,13 @@ export function logRequest(apiKeyId: string, endpoint: string, cep: string, stat
     requestLogs.pop();
   }
 
-  // Increment key usage
-  const key = apiKeys.find((k) => k.id === apiKeyId || k.key === apiKeyId);
-  if (key) {
-    key.requestsToday += 1;
-  }
 }
 
 export function authenticateApiKey(rawKey: string | undefined): ApiKeyItem | null {
   if (!rawKey) return null;
   const key = apiKeys.find((item) => item.key === rawKey && item.active);
   if (!key) return null;
+  resetDailyUsage(key);
 
   const now = Date.now();
   const window = requestWindows.get(key.key);
@@ -340,35 +295,42 @@ export function authenticateApiKey(rawKey: string | undefined): ApiKeyItem | nul
   }
 
   if (key.requestsToday >= key.requestsLimitToday) return null;
+  key.requestsToday += 1;
   return key;
 }
 
-export function getUsageStats() {
-  const totalRequestsToday = apiKeys.reduce((acc, k) => acc + k.requestsToday, 0);
-  const avgResponseTime = requestLogs.length
-    ? Math.round(requestLogs.reduce((acc, l) => acc + l.responseTimeMs, 0) / requestLogs.length)
-    : 42;
-  const successCount = requestLogs.filter((l) => l.status >= 200 && l.status < 300).length;
-  const successRate = requestLogs.length ? +((successCount / requestLogs.length) * 100).toFixed(1) : 99.8;
-
-  // Chart data simulation for last 7 days
-  const dailyUsage = [
-    { day: 'Seg', requests: 4120, validRate: 98.4 },
-    { day: 'Ter', requests: 4890, validRate: 99.1 },
-    { day: 'Qua', requests: 5210, validRate: 98.9 },
-    { day: 'Qui', requests: 5900, validRate: 99.4 },
-    { day: 'Sex', requests: 6840, validRate: 98.7 },
-    { day: 'Sáb', requests: 3100, validRate: 99.2 },
-    { day: 'Dom', requests: 2450, validRate: 99.0 },
-  ];
+export function getUsageStats(companyId: string) {
+  const companyKeys = apiKeys.filter((key) => key.companyId === companyId);
+  companyKeys.forEach(resetDailyUsage);
+  const companyKeyIds = new Set(companyKeys.map((key) => key.id));
+  const companyLogs = requestLogs.filter((log) => companyKeyIds.has(log.apiKeyId));
+  const totalRequestsToday = companyKeys.reduce((acc, key) => acc + key.requestsToday, 0);
+  const avgResponseTime = companyLogs.length
+    ? Math.round(companyLogs.reduce((acc, log) => acc + log.responseTimeMs, 0) / companyLogs.length)
+    : 0;
+  const successCount = companyLogs.filter((log) => log.status >= 200 && log.status < 300).length;
+  const successRate = companyLogs.length ? +((successCount / companyLogs.length) * 100).toFixed(1) : 0;
+  const today = new Date();
+  const dailyUsage = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() - (6 - index));
+    const dateKey = date.toISOString().slice(0, 10);
+    const dayLogs = companyLogs.filter((log) => log.timestamp.slice(0, 10) === dateKey);
+    const validCount = dayLogs.filter((log) => log.status >= 200 && log.status < 300).length;
+    return {
+      day: new Intl.DateTimeFormat('pt-BR', { weekday: 'short' }).format(date),
+      requests: dayLogs.length,
+      validRate: dayLogs.length ? +((validCount / dayLogs.length) * 100).toFixed(1) : 0,
+    };
+  });
 
   return {
     totalRequestsToday,
     avgResponseTime,
     successRate,
-    activeKeys: apiKeys.filter((k) => k.active).length,
+    activeKeys: companyKeys.filter((key) => key.active).length,
     dailyUsage,
-    recentLogs: requestLogs.slice(0, 20),
+    recentLogs: companyLogs.slice(0, 20),
   };
 }
 
@@ -443,7 +405,7 @@ export function getOpenApiSpec() {
       title: 'CEP Solidário & Intelligence B2B API',
       version: '1.0.0',
       description:
-        'API de validação e enriquecimento de endereços em tempo real para e-commerces, logísticas e mapeamento colaborativo de acessibilidade urbana.',
+        'API demonstrativa de consulta de CEP e mapeamento colaborativo. Chaves, métricas e sessões B2B são mantidas em memória; pagamentos não estão habilitados.',
       contact: {
         name: 'Equipe CEP Solidário',
         email: 'suporte@cepsolidario.org.br',
@@ -458,12 +420,12 @@ export function getOpenApiSpec() {
     paths: {
       '/v1/validate': {
         post: {
-          summary: 'Valida e enriquece dados de um CEP (API Paga B2B)',
+          summary: 'Valida e enriquece um CEP usando API key',
           parameters: [
             {
               name: 'x-api-key',
               in: 'header',
-              required: false,
+              required: true,
               schema: { type: 'string' },
               description: 'Chave de API do cliente',
             },
@@ -518,7 +480,6 @@ export function getOpenApiSpec() {
                   properties: {
                     cep: { type: 'string' },
                     local_nome: { type: 'string' },
-                    usuario_nome: { type: 'string' },
                     rampa_acesso: { type: 'boolean' },
                     elevador: { type: 'boolean' },
                     banheiro_adaptado: { type: 'boolean' },
@@ -550,12 +511,23 @@ export function getOpenApiSpec() {
       },
       '/v1/batch': {
         post: {
-          summary: 'Validação em lote (Bulk) de até 1000 CEPs',
+          summary: 'Validação em lote de até 100 CEPs',
         },
       },
       '/checkout/session': {
         post: {
-          summary: 'Criação de sessão de checkout Stripe para planos corporativos SaaS',
+          summary: 'Checkout indisponível enquanto a integração de pagamento não estiver configurada',
+          responses: {
+            501: { description: 'Integração de pagamento não configurada' },
+          },
+        },
+      },
+      '/webhooks/stripe': {
+        post: {
+          summary: 'Webhook de pagamento indisponível',
+          responses: {
+            501: { description: 'Integração e verificação de assinatura não configuradas' },
+          },
         },
       },
     },

@@ -10,13 +10,14 @@
  */
 
 import 'dotenv/config';
-import { getPessoasDb, createPessoaDb, getDbHealth } from '../server/db.js';
+import { initDb, getPessoasDb, createPessoaDb, deletePessoaDb, getDbHealth } from '../server/db.js';
 
 async function executarTestes() {
   console.log('====================================================');
   console.log('🧪 TESTE 1: AUDITORIA DE INFRAESTRUTURA DOCKER & BANCO');
   console.log('====================================================\n');
 
+  await initDb();
   const health = getDbHealth();
   console.log('🔍 Status da Conexão:', health.isConnected ? '🟢 CONECTADO AO MYSQL' : '🟡 MODO FALLBACK (MEMÓRIA)');
   console.log(`🌐 Host do Banco: ${health.host}:${health.port}`);
@@ -30,14 +31,6 @@ async function executarTestes() {
 
   const pessoasIniciais = await getPessoasDb();
   console.log(`📋 Total de pessoas encontradas antes do teste: ${pessoasIniciais.length}`);
-  if (pessoasIniciais.length > 0) {
-    console.log('Primeiro registro encontrado:', {
-      nome: pessoasIniciais[0].nome,
-      cpf: pessoasIniciais[0].cpf,
-      cidade: pessoasIniciais[0].localidade,
-      uf: pessoasIniciais[0].uf,
-    });
-  }
   console.log('\n');
 
   console.log('====================================================');
@@ -45,50 +38,45 @@ async function executarTestes() {
   console.log('====================================================\n');
 
   const payloadTeste = {
-    nome: 'Carlos Drummond de Andrade (Teste Automatizado)',
-    cpf: '888.777.666-55',
-    cep: '30130-100',
-    numero: '120',
-    complemento: 'Gabinete Literário',
-    logradouro: 'Praça da Liberdade',
-    bairro: 'Savassi',
-    localidade: 'Belo Horizonte',
-    uf: 'MG',
-    estado: 'Minas Gerais',
-    rua: 'Praça da Liberdade',
+    nome: 'Pessoa sintética de teste',
+    cpf: '000.000.000-00',
+    cep: '00000-000',
+    numero: '0',
+    complemento: '',
+    logradouro: 'Endereço de teste',
+    bairro: 'Bairro de teste',
+    localidade: 'Cidade de teste',
+    uf: 'ZZ',
+    estado: 'Estado de teste',
+    rua: 'Rua de teste',
     termo_lgpd: true,
   };
 
-  console.log('⏳ Enviando registro para gravação no banco...');
-  const pessoaCriada = await createPessoaDb(payloadTeste);
+  let pessoaCriada: Awaited<ReturnType<typeof createPessoaDb>> | null = null;
+  try {
+    console.log('⏳ Enviando registro sintético para gravação no banco...');
+    pessoaCriada = await createPessoaDb(payloadTeste);
 
-  console.log('✅ Registro gravado com sucesso!');
-  console.log('ID Gerado:', pessoaCriada.id);
-  console.log('Nome:', pessoaCriada.nome);
-  console.log('CPF:', pessoaCriada.cpf);
-  console.log('Data de Criação:', pessoaCriada.created_at);
-  console.log('\n');
+    console.log('====================================================');
+    console.log('🧪 TESTE 4: CONFIRMAÇÃO DE PERSISTÊNCIA (ASSERTION)');
+    console.log('====================================================\n');
 
-  console.log('====================================================');
-  console.log('🧪 TESTE 4: CONFIRMAÇÃO DE PERSISTÊNCIA (ASSERTION)');
-  console.log('====================================================\n');
+    const pessoasAposInsercao = await getPessoasDb();
+    const encontrado = pessoasAposInsercao.find((p) => p.id === pessoaCriada?.id);
+    if (!encontrado) {
+      throw new Error('❌ FALHA NO TESTE: O registro sintético não foi encontrado após inserção.');
+    }
 
-  const pessoasAposInsercao = await getPessoasDb();
-  console.log(`📋 Total de pessoas após inserção: ${pessoasAposInsercao.length}`);
-
-  const encontrado = pessoasAposInsercao.find((p) => p.cpf === payloadTeste.cpf);
-  if (!encontrado) {
-    throw new Error('❌ FALHA NO TESTE: O registro inserido não foi encontrado na consulta!');
+    console.log('✅ Inserção e leitura confirmadas; dados pessoais do registro não foram exibidos.');
+  } finally {
+    if (pessoaCriada) {
+      await deletePessoaDb(pessoaCriada.id);
+      console.log('🧹 Registro sintético removido ao finalizar o teste.');
+    }
   }
 
-  console.log('🎉 SUCESSO ABSOLUTO: O registro foi localizado na lista e está devidamente persistido!');
-  console.log('Detalhes do registro validado:', {
-    id: encontrado.id,
-    nome: encontrado.nome,
-    endereco: `${encontrado.logradouro}, ${encontrado.numero} - ${encontrado.bairro}, ${encontrado.localidade}/${encontrado.uf}`,
-  });
   console.log('\n====================================================');
-  console.log('✨ TODOS OS TESTES PASSARAM COM SUCESSO! ✨');
+  console.log('✨ TESTE DE BANCO CONCLUÍDO COM SUCESSO! ✨');
   console.log('====================================================');
 }
 

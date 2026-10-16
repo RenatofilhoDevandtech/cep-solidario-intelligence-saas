@@ -53,7 +53,10 @@ async function startServer() {
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   // Inicializa banco de dados MySQL (Volume Docker persistente)
-  await initDb();
+  const databaseConnected = await initDb();
+  if (process.env.NODE_ENV === 'production' && !databaseConnected) {
+    throw new Error('Banco MySQL indisponível. Em produção, o servidor não iniciará sem persistência configurada.');
+  }
 
   app.disable('x-powered-by');
   app.use(helmet({ contentSecurityPolicy: false }));
@@ -66,6 +69,13 @@ async function startServer() {
       skip: (req) => req.path === '/api/health',
     })
   );
+  const authRateLimit = rateLimit({
+    windowMs: 15 * 60_000,
+    limit: 10,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { error: 'Muitas tentativas. Aguarde 15 minutos e tente novamente.' },
+  });
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
 
@@ -73,6 +83,14 @@ async function startServer() {
     const cookies = req.headers.cookie?.split(';').map((item) => item.trim()) || [];
     const value = cookies.find((item) => item.startsWith(`${name}=`));
     return value ? decodeURIComponent(value.slice(name.length + 1)) : undefined;
+  };
+
+  const setCompanySessionCookie = (res: express.Response, token: string, maxAge: number) => {
+    const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+    res.setHeader(
+      'Set-Cookie',
+      `cs_session=${encodeURIComponent(token)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}${secure}`
+    );
   };
 
   const requireCompanySession: express.RequestHandler = (req, res, next) => {
@@ -108,7 +126,7 @@ async function startServer() {
   const handleCepLookup = async (req: express.Request, res: express.Response) => {
     const startTime = Date.now();
     const cep = req.params.cep || (req.body && req.body.cep);
-    const apiKey = (req.headers['x-api-key'] as string) || 'public_web';
+    const apiKey = 'public_web';
 
     if (!cep) {
       return res.status(400).json({ error: 'Parâmetro CEP é obrigatório' });
@@ -208,7 +226,6 @@ async function startServer() {
       const {
         cep,
         local_nome,
-        usuario_nome,
         numero,
         complemento,
         logradouro,
@@ -254,7 +271,7 @@ async function startServer() {
       const nova = createAvaliacao({
         cep,
         local_nome,
-        usuario_nome,
+        usuario_nome: 'Colaborador anônimo',
         numero: numero || 'S/N',
         complemento: complemento || '',
         logradouro: endLogradouro,
@@ -319,11 +336,26 @@ async function startServer() {
   // REQUISITOS OFICIAIS DO TRABALHO: CADASTRO E LISTAGEM DE PESSOAS
   // ==========================================================
 
-  // GET /api/pessoas - Listagem de pessoas e seus endereços persistidos no MySQL
+  // GET /api/pessoas - Resumo agregado sem expor dados pessoais individuais
   app.get('/api/pessoas', async (req, res) => {
     try {
       const pessoas = await getPessoasDb();
-      res.json(pessoas);
+      const cidades = new Map<string, { localidade: string; uf: string; total: number }>();
+      for (const pessoa of pessoas) {
+        const key = `${pessoa.localidade.trim().toLocaleLowerCase('pt-BR')}|${pessoa.uf.trim().toUpperCase()}`;
+        const cidade = cidades.get(key) || {
+          localidade: pessoa.localidade,
+          uf: pessoa.uf,
+          total: 0,
+        };
+        cidade.total += 1;
+        cidades.set(key, cidade);
+      }
+      res.setHeader('Cache-Control', 'no-store');
+      res.json({
+        total: pessoas.length,
+        cidades: [...cidades.values()].sort((a, b) => b.total - a.total || a.localidade.localeCompare(b.localidade, 'pt-BR')),
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message || 'Erro ao consultar pessoas cadastradas.' });
     }
@@ -347,17 +379,20 @@ async function startServer() {
         termo_lgpd,
       } = req.body;
 
-      if (!nome || !nome.trim()) {
+      if (typeof nome !== 'string' || !nome.trim()) {
         return res.status(400).json({ error: 'Campo obrigatório: Nome' });
       }
-      if (!cpf || !cpf.trim()) {
-        return res.status(400).json({ error: 'Campo obrigatório: CPF' });
+      if (typeof cpf !== 'string' || cpf.replace(/\D/g, '').length !== 11) {
+        return res.status(400).json({ error: 'CPF deve conter 11 dígitos.' });
       }
-      if (!cep || !cep.trim()) {
-        return res.status(400).json({ error: 'Campo obrigatório: CEP' });
+      if (typeof cep !== 'string' || cep.replace(/\D/g, '').length !== 8) {
+        return res.status(400).json({ error: 'CEP deve conter 8 dígitos.' });
       }
-      if (!numero || !numero.trim()) {
+      if (typeof numero !== 'string' || !numero.trim()) {
         return res.status(400).json({ error: 'Campo obrigatório: Número' });
+      }
+      if (termo_lgpd !== true) {
+        return res.status(400).json({ error: 'É necessário consentimento explícito para tratar os dados cadastrais.' });
       }
 
       // Se algum dado de endereço não foi enviado pelo formulário, busca automaticamente via CEP
@@ -399,13 +434,13 @@ async function startServer() {
         uf: endUf.toUpperCase(),
         estado: endEstado,
         rua: endRua,
-        termo_lgpd: termo_lgpd !== false,
+        termo_lgpd: true,
       });
 
       res.status(201).json({
         success: true,
-        message: 'Pessoa e endereço cadastrados com sucesso!',
-        pessoa: novaPessoa,
+        message: 'Cadastro registrado com sucesso.',
+        pessoa: { id: novaPessoa.id, created_at: novaPessoa.created_at },
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message || 'Erro ao processar cadastro de pessoa.' });
@@ -462,22 +497,19 @@ async function startServer() {
   });
 
   // Autenticação e Ciclo de Vida da Empresa (B2B)
-  app.post('/api/auth/register', (req, res) => {
+  app.post('/api/auth/register', authRateLimit, (req, res) => {
     try {
       const { name, email, password, cnpj } = req.body;
-      if (!name || !email || !password) {
-        return res.status(400).json({ error: 'Nome da empresa, e-mail corporativo e senha são obrigatórios.' });
-      }
       const company = registerCompany(name, email, password, cnpj);
       const session = createCompanySession(company.id);
-      res.setHeader('Set-Cookie', `cs_session=${encodeURIComponent(session)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=28800${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
+      setCompanySessionCookie(res, session, 28800);
       res.status(201).json({ success: true, company });
     } catch (err: any) {
       res.status(400).json({ error: err.message || 'Erro ao registrar empresa' });
     }
   });
 
-  app.post('/api/auth/login', (req, res) => {
+  app.post('/api/auth/login', authRateLimit, (req, res) => {
     try {
       const { email, password } = req.body;
       if (!email || !password) {
@@ -485,7 +517,7 @@ async function startServer() {
       }
       const company = authenticateCompany(email, password);
       const session = createCompanySession(company.id);
-      res.setHeader('Set-Cookie', `cs_session=${encodeURIComponent(session)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=28800${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
+      setCompanySessionCookie(res, session, 28800);
       res.json({ success: true, company });
     } catch (err: any) {
       res.status(401).json({ error: err.message || 'Credenciais inválidas' });
@@ -494,7 +526,7 @@ async function startServer() {
 
   app.post('/api/auth/logout', (req, res) => {
     destroyCompanySession(getCookie(req, 'cs_session'));
-    res.setHeader('Set-Cookie', 'cs_session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0');
+    setCompanySessionCookie(res, '', 0);
     res.json({ success: true });
   });
 
@@ -507,6 +539,11 @@ async function startServer() {
       if (!['FREE', 'STARTUP', 'BUSINESS', 'ENTERPRISE'].includes(plan)) {
         return res.status(400).json({ error: 'Plano inválido.' });
       }
+      if (plan !== 'FREE') {
+        return res.status(402).json({
+          error: 'A contratação de planos pagos ainda não está disponível. Nenhum limite ou plano foi alterado.',
+        });
+      }
       const updated = updateCompanyPlanById(res.locals.company.id, plan);
       res.json({ success: true, company: updated });
     } catch (err: any) {
@@ -516,7 +553,7 @@ async function startServer() {
 
   // 4. B2B SaaS: Gestão de API Keys e Estatísticas
   app.get('/api/admin/usage', requireCompanySession, (req, res) => {
-    const stats = getUsageStats();
+    const stats = getUsageStats(res.locals.company.id);
     res.json(stats);
   });
 
@@ -525,9 +562,16 @@ async function startServer() {
   });
 
   app.post('/api/api-keys', requireCompanySession, (req, res) => {
-    const { name, plan } = req.body;
-    const key = createApiKey(name || 'Chave de Produção', plan || 'STARTUP', res.locals.company.id);
-    res.status(201).json({ success: true, key });
+    const { name } = req.body;
+    if (name !== undefined && (typeof name !== 'string' || name.trim().length > 80)) {
+      return res.status(400).json({ error: 'O nome da chave deve ter no máximo 80 caracteres.' });
+    }
+    try {
+      const key = createApiKey(name?.trim() || 'Chave de API', res.locals.company.id);
+      res.status(201).json({ success: true, key });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Não foi possível criar a chave de API.' });
+    }
   });
 
   app.delete('/api/api-keys/:id', requireCompanySession, (req, res) => {
@@ -547,41 +591,14 @@ async function startServer() {
 
   // Webhook Stripe & Checkout Session API
   app.post('/api/checkout/session', (req, res) => {
-    const { plan, email } = req.body;
-    const planName = plan || 'STARTUP';
-    const prices: Record<string, number> = {
-      STARTUP: 9900,
-      BUSINESS: 49900,
-      ENTERPRISE: 249900,
-    };
-    const amount = prices[planName] || 9900;
-    const sessionId = `cs_test_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-
-    res.json({
-      success: true,
-      sessionId,
-      url: `https://checkout.stripe.com/pay/${sessionId}?plan=${planName}&amount=${amount}`,
-      amount,
-      currency: 'BRL',
-      plan: planName,
-      customerEmail: email || 'contato@empresa.com.br',
-      message: 'Sessão de checkout segura gerada com sucesso (Modo Teste / Sandbox).',
+    res.status(501).json({
+      error: 'Checkout indisponível: a integração de pagamento ainda não está configurada.',
     });
   });
 
   app.post('/api/webhooks/stripe', (req, res) => {
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-    if (!webhookSecret || req.headers['x-webhook-secret'] !== webhookSecret) {
-      return res.status(401).json({ error: 'Webhook não autorizado.' });
-    }
-    const { plan, email, customerId } = req.body;
-    res.json({
-      received: true,
-      event: 'customer.subscription.created',
-      status: 'active',
-      plan: plan || 'BUSINESS',
-      customer: email || 'cliente@empresa.com.br',
-      customerId: customerId || 'cus_demo_98231',
+    res.status(501).json({
+      error: 'Webhook indisponível: configure uma integração Stripe com validação de assinatura antes de ativar planos.',
     });
   });
 

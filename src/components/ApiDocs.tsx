@@ -22,8 +22,8 @@ const ENDPOINTS: EndpointDef[] = [
   {
     method: 'POST',
     path: '/api/v1/validate',
-    title: 'Validação & Enriquecimento B2B (API Corporativa)',
-    desc: 'Valida o CEP com triplo fallback, calcula score de consistência do endereço (0-100), risco logístico de extravio e indicadores de acessibilidade.',
+    title: 'Validação & Enriquecimento (API key)',
+    desc: 'Requer uma API key ativa. Consulta o CEP e retorna indicadores calculados pela aplicação e relatos comunitários de acessibilidade, quando disponíveis.',
     b2b: true,
     sampleBody: { cep: '01310-100' },
   },
@@ -38,11 +38,10 @@ const ENDPOINTS: EndpointDef[] = [
     method: 'POST',
     path: '/api/acessibilidade',
     title: 'Cadastrar Avaliação de Acessibilidade',
-    desc: 'Permite que cidadãos e voluntários registrem rampas, elevadores, banheiros e facilidades para PCD em um CEP.',
+    desc: 'Permite registrar um relato comunitário de acessibilidade; não há auditoria ou verificação independente.',
     sampleBody: {
       cep: '01310-100',
       local_nome: 'Farmácia Central',
-      usuario_nome: 'Mariana Lima',
       rampa_acesso: true,
       elevador: false,
       banheiro_adaptado: true,
@@ -64,14 +63,14 @@ const ENDPOINTS: EndpointDef[] = [
     method: 'GET',
     path: '/api/mapa?lat={lat}&lon={lon}&radius={radius}',
     title: 'Locais Acessíveis em um Raio',
-    desc: 'Pesquisa georreferenciada de estabelecimentos com acessibilidade comprovada em um raio especificado em quilômetros.',
+    desc: 'Pesquisa georreferenciada de relatos comunitários de acessibilidade em um raio especificado em quilômetros.',
     defaultParam: '?lat=-23.561492&lon=-46.655881&radius=25',
   },
   {
     method: 'POST',
     path: '/api/v1/batch',
-    title: 'Validação em Lote (Bulk até 1.000 CEPs)',
-    desc: 'Processamento em massa de endereços para transportadoras e e-commerces com exportação e métricas agregadas.',
+    title: 'Validação em Lote (até 100 CEPs)',
+    desc: 'Processamento demonstrativo de até 100 CEPs por requisição; requer API key ativa.',
     b2b: true,
     sampleBody: {
       ceps: ['01310100', '22041001', '30130100', '40026280'],
@@ -80,19 +79,14 @@ const ENDPOINTS: EndpointDef[] = [
   {
     method: 'POST',
     path: '/api/checkout/session',
-    title: 'Criar Sessão de Checkout Stripe',
-    desc: 'Gera uma sessão de faturamento SaaS segura com plano, valor e metadados para ativação instantânea.',
-    b2b: true,
-    sampleBody: {
-      plan: 'BUSINESS',
-      email: 'financeiro@empresa.com.br',
-    },
+    title: 'Checkout (indisponível)',
+    desc: 'A integração de pagamento não está configurada. A rota responde HTTP 501 e não ativa planos.',
   },
 ];
 
 export const ApiDocs: React.FC = () => {
   const [selectedEndpoint, setSelectedEndpoint] = useState<EndpointDef>(ENDPOINTS[0]);
-  const [apiKey, setApiKey] = useState('cs_live_9b4e8721fa09cd3491e');
+  const [apiKey, setApiKey] = useState('');
   const [reqBody, setReqBody] = useState(JSON.stringify(ENDPOINTS[0].sampleBody || {}, null, 2));
   const [paramValue, setParamValue] = useState(ENDPOINTS[0].defaultParam || '');
   const [executing, setExecuting] = useState(false);
@@ -108,6 +102,10 @@ export const ApiDocs: React.FC = () => {
   };
 
   const handleRunRequest = async () => {
+    if (selectedEndpoint.b2b && !apiKey.trim()) {
+      setApiResponse({ status: 400, error: 'Cole uma API key válida criada nesta sessão.' });
+      return;
+    }
     setExecuting(true);
     setApiResponse(null);
 
@@ -146,13 +144,13 @@ export const ApiDocs: React.FC = () => {
   };
 
   const getCurlSnippet = () => {
-    let url = `https://api.cepsolidario.org.br${selectedEndpoint.path}`;
+    let url = `${window.location.origin}${selectedEndpoint.path}`;
     if (url.includes('{cep}')) url = url.replace('{cep}', paramValue || '01310100');
-    if (url.includes('?lat=')) url = `https://api.cepsolidario.org.br/api/mapa${paramValue}`;
+    if (url.includes('?lat=')) url = `${window.location.origin}/api/mapa${paramValue}`;
 
     let code = `curl -X ${selectedEndpoint.method} "${url}" \\\n  -H "Content-Type: application/json"`;
     if (selectedEndpoint.b2b) {
-      code += ` \\\n  -H "x-api-key: ${apiKey}"`;
+      code += ` \\\n  -H "x-api-key: ${apiKey || 'SUA_API_KEY'}"`;
     }
     if (selectedEndpoint.method === 'POST' && reqBody) {
       code += ` \\\n  -d '${reqBody.replace(/\n\s*/g, ' ')}'`;
@@ -169,7 +167,7 @@ export const ApiDocs: React.FC = () => {
   method: '${selectedEndpoint.method}',
   headers: {
     'Content-Type': 'application/json',
-    ${selectedEndpoint.b2b ? `'x-api-key': '${apiKey}',` : ''}
+    ${selectedEndpoint.b2b ? `'x-api-key': '${apiKey || 'SUA_API_KEY'}',` : ''}
   },
   ${selectedEndpoint.method === 'POST' ? `body: JSON.stringify(${reqBody}),` : ''}
 });
@@ -178,16 +176,16 @@ console.log(data);`;
   };
 
   const getPythonSnippet = () => {
-    let url = `https://api.cepsolidario.org.br${selectedEndpoint.path}`;
+    let url = `${window.location.origin}${selectedEndpoint.path}`;
     if (url.includes('{cep}')) url = url.replace('{cep}', paramValue || '01310100');
-    if (url.includes('?lat=')) url = `https://api.cepsolidario.org.br/api/mapa${paramValue}`;
+    if (url.includes('?lat=')) url = `${window.location.origin}/api/mapa${paramValue}`;
 
     return `import requests
 
 url = "${url}"
 headers = {
     "Content-Type": "application/json",
-    ${selectedEndpoint.b2b ? `"x-api-key": "${apiKey}",` : ''}
+    ${selectedEndpoint.b2b ? `"x-api-key": "${apiKey || 'SUA_API_KEY'}",` : ''}
 }
 ${selectedEndpoint.method === 'POST' ? `payload = ${reqBody}\nresponse = requests.post(url, json=payload, headers=headers)` : `response = requests.get(url, headers=headers)`}
 
@@ -312,9 +310,10 @@ print(response.json())`;
                   </label>
                   <input
                     id="input-docs-apikey"
-                    type="text"
+                    type="password"
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="Cole uma chave criada nesta sessão"
                     className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-semibold text-slate-900 outline-none"
                   />
                 </div>

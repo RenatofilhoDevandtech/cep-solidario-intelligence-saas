@@ -6,20 +6,20 @@ import {
   Check,
   Code2,
   Accessibility,
-  ArrowRight,
   ShieldCheck,
 } from 'lucide-react';
 import { consultarCep } from '../services/api.js';
 
 export const CheckoutWidgetDemo: React.FC = () => {
-  const [cep, setCep] = useState('01310-100');
-  const [logradouro, setLogradouro] = useState('Avenida Paulista');
-  const [numero, setNumero] = useState('1578');
-  const [complemento, setComplemento] = useState('Masp Subsolo');
-  const [bairro, setBairro] = useState('Bela Vista');
-  const [cidade, setCidade] = useState('São Paulo');
-  const [uf, setUf] = useState('SP');
-  const [isPcdAccessible, setIsPcdAccessible] = useState(true);
+  const [cep, setCep] = useState('');
+  const [logradouro, setLogradouro] = useState('');
+  const [numero, setNumero] = useState('');
+  const [complemento, setComplemento] = useState('');
+  const [bairro, setBairro] = useState('');
+  const [cidade, setCidade] = useState('');
+  const [uf, setUf] = useState('');
+  const [accessibilityReports, setAccessibilityReports] = useState<number | null>(null);
+  const [lookupError, setLookupError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [copiedSnippet, setCopiedSnippet] = useState(false);
 
@@ -35,35 +35,41 @@ export const CheckoutWidgetDemo: React.FC = () => {
     if (clean.length === 8) {
       try {
         setLoading(true);
+        setLookupError(null);
         const data = await consultarCep(clean);
         setLogradouro(data.logradouro || '');
         setBairro(data.bairro || '');
         setCidade(data.cidade || '');
         setUf(data.uf || '');
-        setIsPcdAccessible(data.acessibilidadeStats.total > 0 && data.acessibilidadeStats.percentRampa > 0);
+        setAccessibilityReports(data.acessibilidadeStats.total);
       } catch (err) {
-        console.error(err);
+        setAccessibilityReports(null);
+        setLookupError(err instanceof Error ? err.message : 'Não foi possível consultar este CEP.');
       } finally {
         setLoading(false);
       }
+    } else {
+      setLogradouro('');
+      setBairro('');
+      setCidade('');
+      setUf('');
+      setAccessibilityReports(null);
+      setLookupError(null);
     }
   };
 
-  const scriptCode = `<!-- CEP Solidário - Widget de Autocompletar e Acessibilidade -->
-<script
-  src="https://cdn.cepsolidario.org.br/v1/widget.js"
-  data-api-key="cs_live_9b4e8721fa09cd3491e"
-  data-autofill="true"
-  data-validate-realtime="true"
-  data-accessibility="true"
-  async>
-</script>
+  const scriptCode = `const cep = "01310-100";
+const response = await fetch(\`/api/cep/\${cep.replace(/\\D/g, "")}\`);
+if (!response.ok) throw new Error("CEP não encontrado");
 
-<input type="text" id="checkout-cep" name="cep" placeholder="00000-000" />
-<input type="text" id="checkout-logradouro" name="street" />
-<input type="text" id="checkout-bairro" name="district" />
-<input type="text" id="checkout-cidade" name="city" />
-<input type="text" id="checkout-uf" name="state" />`;
+const endereco = await response.json();
+console.log({
+  logradouro: endereco.logradouro,
+  bairro: endereco.bairro,
+  cidade: endereco.cidade,
+  uf: endereco.uf,
+  totalAvaliacoes: endereco.totalAvaliacoes,
+});`;
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(scriptCode);
@@ -78,13 +84,13 @@ export const CheckoutWidgetDemo: React.FC = () => {
         <div className="max-w-3xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-800 text-xs font-semibold mb-2">
             <ShoppingCart className="w-3.5 h-3.5 text-slate-700" />
-            <span>Widget Embeddable para Checkout de E-commerce</span>
+            <span>Simulador local de integração pela API</span>
           </div>
           <h2 className="text-xl font-bold text-slate-900 tracking-tight">
             Autocompletar de Endereços com Indicadores de Acessibilidade
           </h2>
           <p className="text-slate-600 text-xs mt-1 leading-relaxed">
-            Instale o script no seu checkout (Shopify, Nuvemshop, VTEX ou WooCommerce). Conforme o cliente digita o CEP, os campos de endereço são preenchidos automaticamente com dados oficiais dos Correios e alertas para os entregadores sobre acessibilidade local.
+            Esta tela demonstra uma consulta de CEP dentro do próprio aplicativo. Ainda não existe um widget distribuível para Shopify, Nuvemshop, VTEX ou WooCommerce; uma integração externa precisa consumir a API e implementar seus próprios campos.
           </p>
         </div>
       </div>
@@ -99,11 +105,11 @@ export const CheckoutWidgetDemo: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Simulador de Checkout em Loja Virtual</h3>
-                <p className="text-[11px] text-slate-500">Digite um CEP abaixo para ver o preenchimento automático</p>
+                <p className="text-[11px] text-slate-500">Digite um CEP para consultar os dados disponíveis</p>
               </div>
             </div>
             <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-              Widget Ativo
+              Simulador local
             </span>
           </div>
 
@@ -124,7 +130,9 @@ export const CheckoutWidgetDemo: React.FC = () => {
                   maxLength={9}
                 />
                 <div className="absolute inset-y-0 right-3 flex items-center">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  {cep.replace(/\D/g, '').length === 8 && !loading && !lookupError && (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  )}
                 </div>
               </div>
             </div>
@@ -135,9 +143,13 @@ export const CheckoutWidgetDemo: React.FC = () => {
               <div>
                 <span className="font-bold block text-slate-900">Acessibilidade no Ponto de Entrega</span>
                 <p className="text-[11px] text-slate-600 mt-0.5 leading-snug">
-                  {isPcdAccessible
-                    ? 'Este CEP possui registros de rampas e elevadores na comunidade. Informação valiosa para orientar entregadores e facilitar o recebimento.'
-                    : 'Ainda não há registros de acessibilidade para este CEP. O sistema avisará os entregadores para checarem acessos alternativos.'}
+                  {lookupError
+                    ? lookupError
+                    : accessibilityReports === null
+                    ? 'Consulte um CEP para verificar se há relatos comunitários disponíveis.'
+                    : accessibilityReports > 0
+                    ? `${accessibilityReports} relato(s) comunitário(s) disponível(is). As informações não são verificadas nem certificam acessibilidade.`
+                    : 'Sem relatos comunitários para este CEP. A ausência de relatos não significa ausência de acessibilidade.'}
                 </p>
               </div>
             </div>
@@ -213,30 +225,23 @@ export const CheckoutWidgetDemo: React.FC = () => {
               </div>
             </div>
 
-            <button
-              type="button"
-              className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs flex items-center justify-center gap-2 transition-colors"
-            >
-              <span>Avançar para Opções de Frete</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
           </div>
         </div>
 
-        {/* Code Snippet to Embed */}
+        {/* API integration example */}
         <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 flex flex-col justify-between text-white space-y-4">
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-2">
                 <Code2 className="w-4 h-4 text-emerald-400" />
-                <h3 className="text-sm font-bold text-slate-100">Como Instalar no seu Checkout</h3>
+                <h3 className="text-sm font-bold text-slate-100">Exemplo de chamada à API</h3>
               </div>
               <button
                 onClick={handleCopyCode}
                 className="flex items-center gap-1.5 text-xs font-semibold bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition-colors"
               >
                 {copiedSnippet ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copiedSnippet ? 'Copiado!' : 'Copiar Script'}</span>
+                <span>{copiedSnippet ? 'Copiado!' : 'Copiar exemplo'}</span>
               </button>
             </div>
 
@@ -248,11 +253,11 @@ export const CheckoutWidgetDemo: React.FC = () => {
           <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-2 text-xs text-slate-300">
             <span className="font-bold text-white flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              Vantagens para o Comércio Eletrônico:
+              O que este exemplo demonstra:
             </span>
-            <p>• Reduz o abandono de carrinho ao diminuir a digitação de dados pelo cliente.</p>
-            <p>• Previne erros de preenchimento e devolução de encomendas pelos Correios e transportadoras.</p>
-            <p>• Apoia a inclusão social e acessibilidade sem custo adicional.</p>
+            <p>• Faz uma consulta à rota pública de CEP no mesmo domínio da aplicação.</p>
+            <p>• Retorna dados de endereço e contagem de relatos comunitários quando disponíveis.</p>
+            <p>• Não é um script embeddable nem substitui integração e validação no checkout do lojista.</p>
           </div>
         </div>
       </div>

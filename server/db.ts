@@ -33,57 +33,7 @@ export interface NewPessoaInput {
   termo_lgpd?: boolean;
 }
 
-// In-memory fallback dataset for seamless dev experience
-const inMemoryPessoas: PessoaRecord[] = [
-  {
-    id: 1,
-    nome: 'Ana Clara Oliveira',
-    cpf: '123.456.789-01',
-    cep: '01310-100',
-    numero: '1578',
-    complemento: 'Apto 42',
-    logradouro: 'Avenida Paulista',
-    bairro: 'Bela Vista',
-    localidade: 'São Paulo',
-    uf: 'SP',
-    estado: 'São Paulo',
-    rua: 'Avenida Paulista',
-    termo_lgpd: true,
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
-  },
-  {
-    id: 2,
-    nome: 'Carlos Eduardo Mendes',
-    cpf: '234.567.890-12',
-    cep: '22041-001',
-    numero: '450',
-    complemento: 'Bloco B',
-    logradouro: 'Avenida Nossa Senhora de Copacabana',
-    bairro: 'Copacabana',
-    localidade: 'Rio de Janeiro',
-    uf: 'RJ',
-    estado: 'Rio de Janeiro',
-    rua: 'Avenida Nossa Senhora de Copacabana',
-    termo_lgpd: true,
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
-  },
-  {
-    id: 3,
-    nome: 'Mariana Santos Silva',
-    cpf: '345.678.901-23',
-    cep: '30130-100',
-    numero: '120',
-    complemento: 'Sala 3',
-    logradouro: 'Praça da Liberdade',
-    bairro: 'Savassi',
-    localidade: 'Belo Horizonte',
-    uf: 'MG',
-    estado: 'Minas Gerais',
-    rua: 'Praça da Liberdade',
-    termo_lgpd: true,
-    created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-  },
-];
+const inMemoryPessoas: PessoaRecord[] = [];
 
 let pool: Pool | null = null;
 let isDbConnected = false;
@@ -92,7 +42,7 @@ const DB_CONFIG = {
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '3306', 10),
   user: process.env.DB_USER || process.env.MYSQL_USER || 'cepsolidario',
-  password: process.env.DB_PASSWORD || process.env.MYSQL_PASSWORD || 'cep-solidario-local-app',
+  password: process.env.DB_PASSWORD || process.env.MYSQL_PASSWORD || (process.env.NODE_ENV === 'production' ? '' : 'cep-solidario-local-app'),
   database: process.env.DB_NAME || process.env.MYSQL_DATABASE || 'cepsolidario_db',
   waitForConnections: true,
   connectionLimit: 10,
@@ -106,6 +56,7 @@ export async function initDb(): Promise<boolean> {
     ...(DB_CONFIG.host === 'db' ? ['localhost', '127.0.0.1'] : []),
   ];
   const uniqueHosts = Array.from(new Set(hostsToTry));
+  let lastConnectionError: unknown;
 
   for (const host of uniqueHosts) {
     try {
@@ -137,7 +88,7 @@ export async function initDb(): Promise<boolean> {
           uf CHAR(2) NOT NULL,
           estado VARCHAR(100) NOT NULL,
           rua VARCHAR(255) NOT NULL,
-          termo_lgpd BOOLEAN DEFAULT TRUE,
+          termo_lgpd BOOLEAN NOT NULL DEFAULT FALSE,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           INDEX idx_pessoas_cpf (cpf),
           INDEX idx_pessoas_cep (cep)
@@ -186,45 +137,19 @@ export async function initDb(): Promise<boolean> {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
 
-      // Check if pessoas table has rows; if empty, seed default data
-      const [rows]: any = await conn.query('SELECT COUNT(*) as count FROM pessoas');
-      if (rows && rows[0] && rows[0].count === 0) {
-        for (const p of inMemoryPessoas) {
-          await conn.query(
-            `INSERT INTO pessoas (nome, cpf, cep, numero, complemento, logradouro, bairro, localidade, uf, estado, rua, termo_lgpd, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              p.nome,
-              p.cpf,
-              p.cep,
-              p.numero,
-              p.complemento,
-              p.logradouro,
-              p.bairro,
-              p.localidade,
-              p.uf,
-              p.estado,
-              p.rua,
-              p.termo_lgpd ? 1 : 0,
-              p.created_at,
-            ]
-          );
-        }
-        console.log('[MySQL] Seeds iniciais de pessoas inseridas com sucesso no banco.');
-      }
-
       conn.release();
       isDbConnected = true;
       console.log(`[MySQL] Conexão estabelecida com sucesso com ${host}:${config.port}/${config.database} (Volume Docker: mysql_data)`);
       return true;
-    } catch {
-      // Continue to next candidate host
+    } catch (err) {
+      lastConnectionError = err;
     }
   }
 
   isDbConnected = false;
-  console.warn(`[MySQL] Aviso: MySQL não conectado em ${DB_CONFIG.host}:${DB_CONFIG.port} (Container MySQL offline ou desligado).`);
-  console.warn('[MySQL] Operando com camada de persistência em memória e sincronização em tempo real.');
+  console.warn(`[MySQL] Não foi possível conectar a ${DB_CONFIG.host}:${DB_CONFIG.port}.`);
+  console.error('[MySQL] Último erro de conexão:', lastConnectionError);
+  console.warn('[MySQL] O fallback em memória é volátil e está disponível apenas fora de produção.');
   return false;
 }
 
@@ -250,6 +175,7 @@ export async function getPessoasDb(): Promise<PessoaRecord[]> {
       }));
     } catch (err) {
       console.error('[MySQL] Erro ao consultar pessoas, usando fallback:', err);
+      if (process.env.NODE_ENV === 'production') throw err;
     }
   }
   return [...inMemoryPessoas];
@@ -269,7 +195,7 @@ export async function createPessoaDb(data: NewPessoaInput): Promise<PessoaRecord
     uf: data.uf.trim().toUpperCase(),
     estado: data.estado.trim(),
     rua: (data.rua || data.logradouro).trim(),
-    termo_lgpd: data.termo_lgpd !== false,
+    termo_lgpd: data.termo_lgpd === true,
     created_at: new Date().toISOString(),
   };
 
@@ -298,11 +224,22 @@ export async function createPessoaDb(data: NewPessoaInput): Promise<PessoaRecord
       }
     } catch (err) {
       console.error('[MySQL] Erro ao inserir pessoa no banco:', err);
+      throw err;
     }
+    return newRecord;
   }
 
   inMemoryPessoas.unshift(newRecord);
   return newRecord;
+}
+
+export async function deletePessoaDb(id: number): Promise<void> {
+  if (isDbConnected && pool) {
+    await pool.query('DELETE FROM pessoas WHERE id = ?', [id]);
+    return;
+  }
+  const index = inMemoryPessoas.findIndex((pessoa) => pessoa.id === id);
+  if (index !== -1) inMemoryPessoas.splice(index, 1);
 }
 
 export async function saveAvaliacaoDb(data: {
@@ -381,6 +318,7 @@ export async function saveAvaliacaoDb(data: {
       );
     } catch (err) {
       console.error('[MySQL] Erro ao persistir avaliação no banco:', err);
+      throw err;
     }
   }
 }
@@ -395,6 +333,7 @@ export async function upvoteAvaliacaoDb(id: string): Promise<number | null> {
       }
     } catch (err) {
       console.error('[MySQL] Erro ao registrar upvote no banco:', err);
+      throw err;
     }
   }
   return null;

@@ -8,6 +8,8 @@ import {
   CompanyUser,
   MapaNacionalData,
   PessoaRecord,
+  PessoasResumo,
+  PessoaCreated,
   NewPessoaPayload,
   DockerStatus,
 } from '../types.js';
@@ -45,7 +47,6 @@ export async function consultarCep(cep: string): Promise<CepData & { avaliacoes:
 export async function cadastrarAcessibilidade(payload: {
   cep: string;
   local_nome: string;
-  usuario_nome: string;
   numero?: string;
   complemento?: string;
   logradouro?: string;
@@ -135,11 +136,11 @@ export async function listarChavesApi(): Promise<ApiKeyItem[]> {
   return json.keys;
 }
 
-export async function criarChaveApi(name: string, plan: 'FREE' | 'STARTUP' | 'BUSINESS' | 'ENTERPRISE'): Promise<ApiKeyItem> {
+export async function criarChaveApi(name: string): Promise<ApiKeyItem> {
   const res = await fetch('/api/api-keys', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, plan }),
+    body: JSON.stringify({ name }),
   });
   if (!res.ok) throw new Error('Erro ao gerar chave de API');
   const json = await res.json();
@@ -216,7 +217,7 @@ export async function atualizarPlanoEmpresa(plan: string): Promise<CompanyUser> 
   return data.company;
 }
 
-export async function listarPessoas(): Promise<PessoaRecord[]> {
+export async function listarPessoas(): Promise<PessoasResumo> {
   const res = await fetch('/api/pessoas');
   const text = await res.text().catch(() => '');
   let json: any = null;
@@ -233,10 +234,17 @@ export async function listarPessoas(): Promise<PessoaRecord[]> {
     throw new Error(json?.error || text || 'Erro ao listar pessoas cadastradas');
   }
 
-  return Array.isArray(json) ? json : [];
+  if (
+    !json ||
+    typeof json.total !== 'number' ||
+    !Array.isArray(json.cidades)
+  ) {
+    throw new Error('A resposta do servidor não contém o resumo público esperado.');
+  }
+  return json;
 }
 
-export async function cadastrarPessoa(payload: NewPessoaPayload): Promise<PessoaRecord> {
+export async function cadastrarPessoa(payload: NewPessoaPayload): Promise<PessoaCreated> {
   const res = await fetch('/api/pessoas', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -262,7 +270,7 @@ export async function cadastrarPessoa(payload: NewPessoaPayload): Promise<Pessoa
     throw new Error('A resposta do servidor não continha os dados da pessoa cadastrada.');
   }
 
-  return data.pessoa;
+  return data.pessoa as PessoaCreated;
 }
 
 export async function buscarStatusDocker(): Promise<DockerStatus> {
@@ -296,4 +304,3 @@ export async function buscarStatusDocker(): Promise<DockerStatus> {
     return defaultFallback;
   }
 }
-
